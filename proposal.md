@@ -17,8 +17,8 @@ a library for refining types with type-level predicates, which abstracts
 over smart constructors. We'll go from the idea of refinement types to
 examples of the library using the rich set of predicates it provides,
 and show how it can be used at compile- and runtime alike. On that way
-we'll see how we can make use of literal-based singleton types as
-described in [SIP-23](http://docs.scala-lang.org/sips/pending/42.type.html).
+we'll see how we can make good use of literal-based singleton types that
+are proposed in [SIP-23](http://docs.scala-lang.org/sips/pending/42.type.html).
 I'll also demonstrate how refined integrates with other libraries like
 [circe](https://github.com/travisbrown/circe),
 [Monocle](https://github.com/julien-truffaut/Monocle),
