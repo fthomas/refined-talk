@@ -8,3 +8,5 @@ cache:
   directories:
   - "$HOME/.ivy2/cache"
   - "$HOME/.sbt/boot/"
+script:
+- sbt ++$TRAVIS_SCALA_VERSION tut test
