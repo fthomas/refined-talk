@@ -29,5 +29,8 @@ libraryDependencies ++= Seq(
 tutSettings
 
 ghpages.settings
+GhPagesKeys.privateMappings := Seq(
+  tutTargetDirectory.value / "refined.html" -> "index.html"
+)
 
 git.remoteRepo := "git@github.com:fthomas/refined-talk.git"
