@@ -27,3 +27,7 @@ libraryDependencies ++= Seq(
 )
 
 tutSettings
+
+ghpages.settings
+
+git.remoteRepo := "git@github.com:fthomas/refined-talk.git"

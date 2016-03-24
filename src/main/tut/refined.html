@@ -41,16 +41,31 @@ class: center, middle
 ---
 # Intro
 
+<small>
 ```tut:silent
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.auto._
 import eu.timepit.refined.numeric.Positive
 ```
+</small>
 ```tut
 val x: Int Refined Positive = 5
 ```
 ```tut:fail
 val y: Int Refined Positive = -5
+```
+
+---
+# Intro 2
+
+```tut:silent
+type PosInt = Int Refined Positive
+```
+```tut
+val x: PosInt = 42
+```
+```tut:fail
+val y: PosInt = -23
 ```
 
 ---
