@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>refined</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body {
+        font-family: 'Droid Serif';
+      }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code,
+      .remark-inline-code {
+        font-family: 'Ubuntu Mono';
+        font-size: 110%;
+      }
+      .remark-container {
+        background-color: #272822;
+      }
+      .remark-slide-content {
+        background-color: #272822;
+        color: #f3f3f3;
+      }
+      .remark-slide-scaler {
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle
+# refined
+## Frank S. Thomas
+
+---
+# Intro
+
+<small>
+```scala
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.auto._
+import eu.timepit.refined.numeric.Positive
+```
+</small>
+```scala
+scala> val x: Int Refined Positive = 5
+x: eu.timepit.refined.api.Refined[Int,eu.timepit.refined.numeric.Positive] = Refined(5)
+```
+```scala
+scala> val y: Int Refined Positive = -5
+<console>:17: error: Predicate failed: (-5 > 0).
+       val y: Int Refined Positive = -5
+                                      ^
+```
+
+---
+# Intro 2
+
+```scala
+type PosInt = Int Refined Positive
+```
+```scala
+scala> val x: PosInt = 42
+x: PosInt = Refined(42)
+```
+```scala
+scala> val y: PosInt = -23
+<console>:18: error: Predicate failed: (-23 > 0).
+       val y: PosInt = -23
+                        ^
+```
+
+---
+# SIP-23 - Literal-based singleton types
+
+http://docs.scala-lang.org/sips/pending/42.type.html
+
+
+---
+# slide 3 circe
+
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js"></script>
+    <script>
+      var slideshow = remark.create({
+        ratio: '16:9',
+        highlightLanguage: 'scala',
+        highlightStyle: 'monokai'
+      });
+    </script>
+  </body>
+</html>
