@@ -34,3 +34,22 @@ GhPagesKeys.privateMappings := Seq(
 )
 
 git.remoteRepo := "git@github.com:fthomas/refined-talk.git"
+
+lazy val stripPackages = taskKey[Unit]("")
+stripPackages := {
+  val file = tutTargetDirectory.value / "refined.html"
+  val script = List("api", "boolean", "numeric", "string")
+    .map(p => s"eu\\.timepit\\.refined\\.$p\\.")
+    .map(p => s"""/^import/! s/$p//g""")
+    .flatMap(s => List("-e", s))
+
+  val cmd = List("sed", "-i") ++ script :+ file.toString
+  state.value.log.info(cmd.mkString(" "))
+  cmd.!!
+}
+
+lazy val makeSlides = taskKey[Unit]("")
+makeSlides := Def.sequential(tut, stripPackages).value
+
+lazy val updateSite = taskKey[Unit]("")
+updateSite := Def.sequential(makeSlides, GhPagesKeys.pushSite).value
