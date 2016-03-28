@@ -23,7 +23,9 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 libraryDependencies ++= Seq(
   "eu.timepit" %% "refined" % "0.3.7",
   "com.github.julien-truffaut" %% "monocle-refined" % "1.3.0-SNAPSHOT",
-  "io.circe" %% "circe-refined" % "0.4.0-SNAPSHOT"
+  "io.circe" %% "circe-generic" % "0.4.0-RC1",
+  "io.circe" %% "circe-parser" % "0.4.0-RC1",
+  "io.circe" %% "circe-refined" % "0.4.0-RC1"
 )
 
 tutSettings
