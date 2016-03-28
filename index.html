@@ -15,6 +15,9 @@
         font-family: 'Yanone Kaffeesatz';
         font-weight: normal;
       }
+      a {
+        color: #FFC000;
+      }
       .remark-code,
       .remark-inline-code {
         font-family: 'Ubuntu Mono';
@@ -37,6 +40,25 @@
 class: center, middle
 # refined
 ## Frank S. Thomas
+
+* types classify values
+* we use ADTs to build our own types
+* some types are priviliged by the language because of literals
+  (primitive types Int, Char, Double, Float, Byte, Short, Boolean)
+  String
+
+---
+class: center, middle
+
+<img src="http://fthomas.github.io/refined-talk/shakespeare.png"
+  alt="" style="max-width: 75%; max-height: 75%" />
+
+https://twitter.com/KenScambler/status/621933432365432832
+
+---
+# Refinement types
+
+Simple idea: refinement type = base type + predicate
 
 ---
 # Intro
@@ -79,11 +101,59 @@ scala> val y: PosInt = -23
 ---
 # SIP-23 - Literal-based singleton types
 
-http://docs.scala-lang.org/sips/pending/42.type.html
+* by George Leontiev, Eugene Burmako, Jason Zaugg, Adriaan Moors,
+Paul Phillips
 
+* http://docs.scala-lang.org/sips/pending/42.type.html
+
+* Would allow literals in any type position
+
+    * `Greater[3.14]` instead of ``Greater[W.`3.14`.T]``
+
+    * or ``Interval.Closed['a', 'z']`` instead of
+      ``Interval.Closed[W.`'a'`.T, W.`'z'`.T]``
 
 ---
-# slide 3 circe
+# refined + [circe](https://github.com/travisbrown/circe)
+
+<div style="font-size: small;">
+```scala
+import eu.timepit.refined.boolean.And, eu.timepit.refined.char.Digit, eu.timepit.refined.collection.{ Forall, Size }, eu.timepit.refined.generic.Equal, eu.timepit.refined.W
+import io.circe.generic.auto._, io.circe.parser._, io.circe.refined._, io.circe.syntax._
+```
+</div>
+```scala
+case class CSC(code: String Refined And[Forall[Digit], Size[Equal[W.`3`.T]]])
+```
+```scala
+scala> CSC("321").asJson.noSpaces
+res0: String = {"code":"321"}
+
+scala> decode[CSC](""" {"code": "456"} """)
+res1: cats.data.Xor[io.circe.Error,CSC] = Right(CSC(Refined(456)))
+
+scala> decode[CSC](""" {"code": "4A"} """)
+res2: cats.data.Xor[io.circe.Error,CSC] = Left(DecodingFailure(Both predicates of ((isDigit('4') && isDigit('A')) && (2 == 3)) failed. Left: Predicate failed: (isDigit('4') && isDigit('A')). Right: Predicate taking size(4A) = 2 failed: Predicate failed: (2 == 3)., List(El(DownField(code),true,false))))
+```
+
+---
+# refined + [Monocle](https://github.com/julien-truffaut/Monocle)
+<div style="font-size: small;">
+```scala
+import monocle.function.At._, monocle.syntax.apply._, monocle.refined._, monocle.refined.bits._
+```
+</div>
+Bitwise lensing into integral types:
+```scala
+scala> 0.applyLens(at(31: IntBits)).set(true)
+res3: Int = -2147483648
+```
+```scala
+scala> 0.applyLens(at(32: IntBits)).set(true)
+<console>:47: error: Right predicate of (!(32 < 0) && !(32 > 31)) failed: Predicate (32 > 31) did not fail.
+       0.applyLens(at(32: IntBits)).set(true)
+                      ^
+```
 
 
     </textarea>
