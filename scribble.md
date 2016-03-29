@@ -7,6 +7,12 @@ refined function ???
 
 liquid haskell is only in comments
 
+---
+implementation:
+* type `Refined[T, P]` that wraps a value of type `T` and associates the predicate `P` with the base type
+* type level predicates like `Letter`, `Greater[_]`, `And[_,_]`
+* type class Validate[T, P] 
+
 ----
 
 beispiel für refined
