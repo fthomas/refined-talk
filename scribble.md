@@ -60,19 +60,6 @@ Datenmodellierung
 - Wenn wir Int, String oder Double nehmen, dann gibt es viel viel mehr
   Zustände als in unserer Domain eigentlich sinnvoll ist
 
-Smart Constructors
-- Beispiel einer sinnvollen Einschränkung: HexString
-- case class HexString private (value: String) extends AnyVal
-  object HexString {
-    def apply(s: String): Option[HexString] =
-     val isHex = s.forall(c => c.isDigit || ('A' to 'F').contains(c))
-     if (isHex) Some(HexString(s) else None
-  }
-
-- Usage:
-  HexString("123ABC") // Some(HexString("123ABC"))
-  HexString("123-bc") // None
-
 Smart constructors 2
 - Vorteile we can only create valid HexStrings with this constructor
 - Nachteile: Wiederholungen, keine Literale (auch wenn zur Compilezeit

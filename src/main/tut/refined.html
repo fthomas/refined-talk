@@ -61,19 +61,86 @@ https://twitter.com/KenScambler/status/621933432365432832
 Simple idea: refinement type = base type + predicate
 
 ---
-# Intro
+# Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
 
 <small>
 ```tut:silent
+import eu.timepit.refined.W
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.auto._
+import eu.timepit.refined.boolean.And
+import eu.timepit.refined.char.Digit
+import eu.timepit.refined.collection.{ Forall, Size }
+import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.Positive
+
+import io.circe.generic.auto._
+import io.circe.parser._
+import io.circe.refined._
+import io.circe.syntax._
+
+import monocle.function.At._
+import monocle.refined._
+import monocle.refined.bits._
+import monocle.syntax.apply._
 ```
 </small>
+
+---
+# Smart constructors
+
+* privater Konstruktor
+* "smarter" Konstruktor führt zusätzliche Checks durch
+
+```tut:silent
+object test {
+  case class HexString private (value: String)
+
+  object HexString {
+    def smart(s: String): Option[HexString] = {
+      val isHex = s.forall(c => c.isDigit || ('A' to 'F').contains(c))
+      if (isHex) Some(new HexString(s)) else None
+    }
+  }
+}
+```
+
+---
+# Smart constructors (2)
+
+* `smart` erzeugt nur valide `HexString`s:
+
+```tut
+test.HexString.smart("123ABC")
+
+test.HexString.smart("123ABX")
+```
+
+* Nur `smart` kann `HexString`s erzeugen:
+
+```tut:fail
+new test.HexString("123ABC")
+```
+
+---
+# Smart constructors (3)
+
+
+
+---
+# Intro
+
 ```tut
 val x: Int Refined Positive = 5
 ```
 ```tut:fail
+val y: Int Refined Positive = -5
+```
+
+```tut:book
+val x: Int Refined Positive = 5
+```
+```tut:fail:book
 val y: Int Refined Positive = -5
 ```
 
@@ -108,12 +175,6 @@ Paul Phillips
 ---
 # refined + [circe](https://github.com/travisbrown/circe)
 
-<div style="font-size: small;">
-```tut:silent
-import eu.timepit.refined.boolean.And, eu.timepit.refined.char.Digit, eu.timepit.refined.collection.{ Forall, Size }, eu.timepit.refined.generic.Equal, eu.timepit.refined.W
-import io.circe.generic.auto._, io.circe.parser._, io.circe.refined._, io.circe.syntax._
-```
-</div>
 ```tut:silent
 case class CSC(code: String Refined And[Forall[Digit], Size[Equal[W.`3`.T]]])
 ```
@@ -126,11 +187,7 @@ decode[CSC](""" {"code": "4A"} """)
 
 ---
 # refined + [Monocle](https://github.com/julien-truffaut/Monocle)
-<div style="font-size: small;">
-```tut:silent
-import monocle.function.At._, monocle.syntax.apply._, monocle.refined._, monocle.refined.bits._
-```
-</div>
+
 Bitwise lensing into integral types:
 ```tut
 0.applyLens(at(31: IntBits)).set(true)
