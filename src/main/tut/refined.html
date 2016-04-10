@@ -67,12 +67,13 @@ Simple idea: refinement type = base type + predicate
 ```tut:silent
 import eu.timepit.refined.W
 import eu.timepit.refined.api.Refined
+import eu.timepit.refined.api.RefType
 import eu.timepit.refined.auto._
-import eu.timepit.refined.boolean.And
+import eu.timepit.refined.boolean.{ And, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
 import eu.timepit.refined.generic.Equal
-import eu.timepit.refined.numeric.Positive
+import eu.timepit.refined.numeric.{ Interval, Positive }
 
 import io.circe.generic.auto._
 import io.circe.parser._
@@ -83,11 +84,13 @@ import monocle.function.At._
 import monocle.refined._
 import monocle.refined.bits._
 import monocle.syntax.apply._
+
+import scala.sys.process._
 ```
 </small>
 
 ---
-# Smart constructors
+# Smart constructors - Definition
 
 * privater Konstruktor
 * "smarter" Konstruktor führt zusätzliche Checks durch
@@ -106,7 +109,7 @@ object test {
 ```
 
 ---
-# Smart constructors (2)
+# Smart constructors - Verwendung
 
 * `smart` erzeugt nur valide `HexString`s:
 
@@ -125,6 +128,112 @@ new test.HexString("123ABC")
 ---
 # Smart constructors (3)
 
+
+
+---
+# `HexString` mit refined
+
+
+```tut:silent
+def isHex(s: String) = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
+```
+
+```tut:silent
+type HexString =
+  String Refined Forall[Digit Or (Interval.Closed[W.`'a'`.T, W.`'f'`.T])]
+```
+
+```tut
+"123abc": HexString
+```
+```tut:fail
+"A": HexString
+```
+
+* no runtime overhead
+
+---
+# runtime
+
+```tut:silent
+def sha1 = "git rev-parse HEAD".!!.trim
+```
+```tut
+RefType.applyRef[HexString](sha1)
+```
+
+---
+# Prädikate
+
+* `True`: constant predicate that is always `true`
+* `False`: constant predicate that is always `false`
+* `Not[P]`: negation of the predicate `P`
+* `And[A, B]`: conjunction of the predicates `A` and `B`
+* `Or[A, B]`: disjunction of the predicates `A` and `B`
+* `Xor[A, B]`: exclusive disjunction of the predicates `A` and `B`
+* `Nand[A, B]`: negated conjunction of the predicates `A` and `B`
+* `Nor[A, B]`: negated disjunction of the predicates `A` and `B`
+* `AllOf[PS]`: conjunction of all predicates in `PS`
+* `AnyOf[PS]`: disjunction of all predicates in `PS`
+* `OneOf[PS]`: exclusive disjunction of all predicates in `PS`
+
+---
+#
+
+* `Digit`: checks if a `Char` is a digit
+* `Letter`: checks if a `Char` is a letter
+* `LetterOrDigit`: checks if a `Char` is a letter or digit
+* `LowerCase`: checks if a `Char` is a lower case character
+* `UpperCase`: checks if a `Char` is an upper case character
+* `Whitespace`: checks if a `Char` is white space
+
+---
+#
+
+* `Contains[U]`: checks if a `Traversable` contains a value equal to `U`
+* `Count[PA, PC]`: counts the number of elements in a `Traversable` which satisfy the
+  predicate `PA` and passes the result to the predicate `PC`
+* `Empty`: checks if a `Traversable` is empty
+* `NonEmpty`: checks if a `Traversable` is not empty
+* `Forall[P]`: checks if the predicate `P` holds for all elements of a `Traversable`
+* `Exists[P]`: checks if the predicate `P` holds for some elements of a `Traversable`
+* `Head[P]`: checks if the predicate `P` holds for the first element of a `Traversable`
+* `Index[N, P]`: checks if the predicate `P` holds for the element at index `N` of a sequence
+* `Init[P]`: checks if the predicate `P` holds for all but the last element of a `Traversable`
+* `Last[P]`: checks if the predicate `P` holds for the last element of a `Traversable`
+* `Tail[P]`: checks if the predicate `P` holds for all but the first element of a `Traversable`
+* `Size[P]`: checks if the size of a `Traversable` satisfies the predicate `P`
+* `MinSize[N]`: checks if the size of a `Traversable` is greater than or equal to `N`
+* `MaxSize[N]`: checks if the size of a `Traversable` is less than or equal to `N`
+
+---
+#
+
+* `Less[N]`: checks if a numeric value is less than `N`
+* `LessEqual[N]`: checks if a numeric value is less than or equal to `N`
+* `Greater[N]`: checks if a numeric value is greater than `N`
+* `GreaterEqual[N]`: checks if a numeric value is greater than or equal to `N`
+* `Positive`: checks if a numeric value is greater than zero
+* `NonPositive`: checks if a numeric value is zero or negative
+* `Negative`: checks if a numeric value is less than zero
+* `NonNegative`: checks if a numeric value is zero or positive
+* `Interval.Open[L, H]`: checks if a numeric value is in the interval (`L`, `H`)
+* `Interval.OpenClosed[L, H]`: checks if a numeric value is in the interval (`L`, `H`]
+* `Interval.ClosedOpen[L, H]`: checks if a numeric value is in the interval [`L`, `H`)
+* `Interval.Closed[L, H]`: checks if a numeric value is in the interval [`L`, `H`]
+
+---
+#
+
+* `EndsWith[S]`: checks if a `String` ends with the suffix `S`
+* `MatchesRegex[S]`: checks if a `String` matches the regular expression `S`
+* `Regex`: checks if a `String` is a valid regular expression
+* `StartsWith[S]`: checks if a `String` starts with the prefix `S`
+* `Uri`: checks if a `String` is a valid URI
+* `Url`: checks if a `String` is a valid URL
+* `Uuid`: checks if a `String` is a valid UUID
+* `Xml`: checks if a `String` is valid XML
+* `XPath`: checks if a `String` is a valid XPath expression
 
 
 ---

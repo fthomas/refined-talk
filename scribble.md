@@ -80,14 +80,3 @@ refined the library:
 - uses macro for implementing refinement subtyping
 - provides a wealth of type-level predicate that can be combined
   to express sophisticated predicates
-
-HexString with refined
-  * val isHex = s.forall(c => c.isDigit || ('A' to 'F').contains(c))
-  * we can use Types with two parameters infix
-  * type HexString = String Refined Forall[Digit Or (Interval.Closed['A', 'F'])]
-  * "BADC0DE": HexString // Hexstring = BADC0DE
-  * "gibberisch": HexString // ...
-  * the above has no runtime overhead
-  * refining unknown values...
-  
-Predicates provided by refined:
