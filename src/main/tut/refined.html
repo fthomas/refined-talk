@@ -41,6 +41,7 @@ class: center, middle
 # refined
 ## Frank S. Thomas
 
+---
 * types classify values
 * we use ADTs to build our own types
 * some types are priviliged by the language because of literals
@@ -56,38 +57,38 @@ class: center, middle
 https://twitter.com/KenScambler/status/621933432365432832
 
 ---
-# Refinement types
-
-Simple idea: refinement type = base type + predicate
-
----
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
 
 <small>
 ```tut:silent
 import eu.timepit.refined.W
-import eu.timepit.refined.api.Refined
-import eu.timepit.refined.api.RefType
+import eu.timepit.refined.api.{ Refined, RefType }
 import eu.timepit.refined.auto._
 import eu.timepit.refined.boolean.{ And, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
 import eu.timepit.refined.generic.Equal
-import eu.timepit.refined.numeric.{ Interval, Positive }
-
+import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.refined._
 import io.circe.syntax._
-
 import monocle.function.At._
 import monocle.refined._
 import monocle.refined.bits._
 import monocle.syntax.apply._
-
 import scala.sys.process._
 ```
 </small>
+
+---
+# 
+
+Datenmodellierung
+- Wir bauen unsere Datentypen aus Primitiven & Strings, vorgegebenen
+  Datenstrukturen, oder Kombination von eigenen Datentypen zusammen
+- Wenn wir Int, String oder Double nehmen, dann gibt es viel viel mehr
+  Zustände als in unserer Domain eigentlich sinnvoll ist
 
 ---
 # Smart constructors - Definition
@@ -101,7 +102,7 @@ object test {
 
   object HexString {
     def smart(s: String): Option[HexString] = {
-      val isHex = s.forall(c => c.isDigit || ('A' to 'F').contains(c))
+      val isHex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
       if (isHex) Some(new HexString(s)) else None
     }
   }
@@ -114,53 +115,167 @@ object test {
 * `smart` erzeugt nur valide `HexString`s:
 
 ```tut
-test.HexString.smart("123ABC")
+test.HexString.smart("123abc")
 
-test.HexString.smart("123ABX")
+test.HexString.smart("A")
 ```
 
 * Nur `smart` kann `HexString`s erzeugen:
 
 ```tut:fail
-new test.HexString("123ABC")
+new test.HexString("123abc")
 ```
 
 ---
 # Smart constructors (3)
 
+Yay:
+
+* wir können nur valide HexStrings erzeugen
+
+Nay:
+
+* Prüfung findet immer zur Laufzeit statt auch wenn zur Compilezeit
+  bereits feststeht, dass es ein valider HexString ist
+
+* wie kommt man an HexStrings, bei den zur compilezeit feststeht, dass
+sie valide sind? HexString.smart("abc").get // unsafe!
+
+---
+# Refinement Types
+
+Grundidee:
+
+* <span style="color:#FFC000">**Basistyp**</span> wird mit einem
+  <span style="color:#FFC000">**Prädikat**</span> angereichert
+
+* Werte diesen Typs <span style="color:#FFC000">**genügen dem Prädikat**</span>
+
+Beispiele:
+
+* `Int with (i => i > 0)`
+
+* `String with (s => s.size >= 8)`
+
+Subtyping:
+
+* `(T with P) <: T`
+
+* `(T with P) <: (T with Q)` wenn für alle `t &isin; (T with P)` gilt:
+  `Q(t) == true`
+
+???
+
+* Laufzeit-Repräsentation entspricht dem Basistyp
+
+* Refinement Types können Vorbedingungen (Parametertyp) und
+  Nachbedingungen (Rückgabetyp) ausdrücken
+
+* `T with P` kann überall dort verwendet werden wo ein T benötigt wird
+
+---
+# refined, die Bibliothek
+
+* Implementiert Refinement Types
+
+* Eine Reihe Typelevel-Prädikaten, die miteinander kombiniert werden können
+
+* Makro für die Validierung von Literalen
+
+* Makro für die Unterstützung Refinement Subtyping
 
 
 ---
-# `HexString` mit refined
+# Intro
 
+```tut
+val x: Int Refined Positive = 5
+```
+```tut:fail
+val y: Int Refined Positive = -5
+```
+
+---
+# HexString mit refined
 
 ```tut:silent
-def isHex(s: String) = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
+// Prädikat auf Wertebene
+def isHex(s: String): Boolean =
+  s.forall(c => c.isDigit || ('a' to 'f').contains(c))
 ```
 
 ```tut:silent
+// Prädikat auf Typebene
 type HexString =
   String Refined Forall[Digit Or (Interval.Closed[W.`'a'`.T, W.`'f'`.T])]
 ```
 
+HexString ist zusammengesetzt aus:
+
+* `Refined[T, P]`
+* `Forall[Q]`
+* `Digit`
+* `Or[A, B]`
+* `Interval.Closed[L, H]`
+
+???
+
+* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
+  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
+
+* `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
+  diesen Typen sind 'a' bzw. 'f'
+
+---
+# Refinements zur Compile-Zeit
+
+Validierung von Literalen zur Compile-Zeit:
 ```tut
 "123abc": HexString
 ```
+
+Ungültige Literale führen zu einem Compile-Fehler:
 ```tut:fail
 "A": HexString
 ```
 
-* no runtime overhead
+Refinements zur Compile-Zeit haben **keinen** Laufzeit-Overhead!
 
 ---
-# runtime
+# Refinements zur Laufzeit
 
-```tut:silent
-def sha1 = "git rev-parse HEAD".!!.trim
-```
+Was ist mit Werten, die erst zur Laufzeit bekannt sind?
+
+Refined Wert rechts:
 ```tut
+def sha1: String = "git rev-parse HEAD".!!.trim
+
 RefType.applyRef[HexString](sha1)
 ```
+
+Oder Fehlermeldung links:
+```tut
+RefType.applyRef[HexString](scala.util.Random.nextString(1))
+```
+
+---
+# Refinement Subtyping
+
+Alle `Int`s größer als 5 sind auch größer als 0:
+```tut
+val x: Int Refined Greater[W.`5`.T] = 100
+
+val y: Int Refined Greater[W.`0`.T] = x
+```
+
+Aber nicht alle `Int`s größer als 5 sind auch größer als 10:
+```tut:fail
+val z: Int Refined Greater[W.`10`.T] = x
+```
+
+???
+
+* Zuweisung ist ein Compile-Fehler
 
 ---
 # Prädikate
@@ -235,36 +350,6 @@ RefType.applyRef[HexString](sha1)
 * `Xml`: checks if a `String` is valid XML
 * `XPath`: checks if a `String` is a valid XPath expression
 
-
----
-# Intro
-
-```tut
-val x: Int Refined Positive = 5
-```
-```tut:fail
-val y: Int Refined Positive = -5
-```
-
-```tut:book
-val x: Int Refined Positive = 5
-```
-```tut:fail:book
-val y: Int Refined Positive = -5
-```
-
----
-# Intro 2
-
-```tut:silent
-type PosInt = Int Refined Positive
-```
-```tut
-val x: PosInt = 42
-```
-```tut:fail
-val y: PosInt = -23
-```
 
 ---
 # SIP-23 - Literal-based singleton types

@@ -23,7 +23,7 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 val circeVersion = "0.4.0-RC2"
 
 libraryDependencies ++= Seq(
-  "eu.timepit" %% "refined" % "0.3.7",
+  "eu.timepit" %% "refined" % "0.4.0",
   "com.github.julien-truffaut" %% "monocle-refined" % "1.3.0-SNAPSHOT",
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser"  % circeVersion,
