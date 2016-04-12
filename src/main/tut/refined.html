@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>refined</title>
+    <title>Refinement Types in Scala mit refined</title>
     <meta charset="utf-8">
     <style>
       @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
@@ -37,24 +37,39 @@
   </head>
   <body>
     <textarea id="source">
+
 class: center, middle
-# refined
+# Refinement Types in Scala mit refined
 ## Frank S. Thomas
 
 ---
+class: center, middle
+
+<img src="https://raw.githubusercontent.com/fthomas/refined-talk/master/shakespeare.png"
+  alt="" style="max-width: 75%; max-height: 75%" />
+
+https://twitter.com/KenScambler/status/621933432365432832
+
+---
+# Refinement was?
+
+---
+# Refinement was?
+
 * types classify values
 * we use ADTs to build our own types
 * some types are priviliged by the language because of literals
   (primitive types Int, Char, Double, Float, Byte, Short, Boolean)
   String
 
----
-class: center, middle
-
-<img src="http://fthomas.github.io/refined-talk/shakespeare.png"
-  alt="" style="max-width: 75%; max-height: 75%" />
-
-https://twitter.com/KenScambler/status/621933432365432832
+Datenmodellierung
+- Wir bauen unsere Datentypen aus Primitiven & Strings, vorgegebenen
+  Datenstrukturen, oder Kombination von eigenen Datentypen zusammen
+- Wenn wir Int, String oder Double nehmen, dann gibt es viel viel mehr
+  Zustände als in unserer Domain eigentlich sinnvoll ist
+  - wir nutzen oft Datentypen die mehr Werte abbilden, die in unserer Domäne
+  nicht sinnvoll sind. Weil es bequem ist.
+  
 
 ---
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
@@ -83,12 +98,6 @@ import scala.sys.process._
 
 ---
 # 
-
-Datenmodellierung
-- Wir bauen unsere Datentypen aus Primitiven & Strings, vorgegebenen
-  Datenstrukturen, oder Kombination von eigenen Datentypen zusammen
-- Wenn wir Int, String oder Double nehmen, dann gibt es viel viel mehr
-  Zustände als in unserer Domain eigentlich sinnvoll ist
 
 ---
 # Smart constructors - Definition
@@ -350,7 +359,6 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `Xml`: checks if a `String` is valid XML
 * `XPath`: checks if a `String` is a valid XPath expression
 
-
 ---
 # SIP-23 - Literal-based singleton types
 
@@ -365,6 +373,9 @@ Paul Phillips
 
     * or ``Interval.Closed['a', 'z']`` instead of
       ``Interval.Closed[W.`'a'`.T, W.`'z'`.T]``
+
+---
+# refined + [scalacheck](https://www.scalacheck.org/)
 
 ---
 # refined + [circe](https://github.com/travisbrown/circe)
