@@ -64,13 +64,7 @@ sinnvoll ist
 
 * Möglichen Fehlerzustände schrumpfen oder verschwinden
 
----
-class: center, middle
-
-<img src="https://raw.githubusercontent.com/fthomas/refined-talk/master/shakespeare.png"
-  alt="" style="max-width: 75%; max-height: 75%" />
-
-https://twitter.com/KenScambler/status/621933432365432832
+* Der Compiler soll helfen mehr Fehler zu vermeiden
 
 ---
 # Welche Datentypen verwenden wir?
@@ -90,7 +84,16 @@ https://twitter.com/KenScambler/status/621933432365432832
 * Wie erzeuge ich einen Datentyp der die natürlichen Zahlen von 1 bis 10 (100) repräsentiert?
   `Int`, `Short`, `Byte` oder Summentyp, bei dem alle Werte aufgezählt werden?
 
-* Warum Long für einen Datentyp, wenn Werte nie negativ sein können. Der Compiler pr
+* Warum Long für einen Datentyp, wenn Werte nie negativ sein können. Der Compiler hilft hier nicht.
+  Wenn wir defensiv programmieren, müsste wir immer damit rechnen.
+
+---
+class: center, middle
+
+<img src="https://raw.githubusercontent.com/fthomas/refined-talk/master/shakespeare.png"
+  alt="" style="max-width: 75%; max-height: 75%" />
+
+https://twitter.com/KenScambler/status/621933432365432832
 
 ---
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
@@ -116,9 +119,6 @@ import monocle.syntax.apply._
 import scala.sys.process._
 ```
 </small>
-
----
-# 
 
 ---
 # Smart constructors - Definition
@@ -157,19 +157,30 @@ new test.HexString("123abc")
 ```
 
 ---
-# Smart constructors (3)
+# Smart constructors - Vor- und Nachteile
 
-Yay:
+Vorteile:
 
-* wir können nur valide HexStrings erzeugen
+* Wir können nur valide HexStrings erzeugen!
 
-Nay:
+Nachteile:
 
-* Prüfung findet immer zur Laufzeit statt auch wenn zur Compilezeit
-  bereits feststeht, dass es ein valider HexString ist
+* Prüfung findet immer zur Laufzeit statt
 
-* wie kommt man an HexStrings, bei den zur compilezeit feststeht, dass
-sie valide sind? HexString.smart("abc").get // unsafe!
+* Auch Literale werden in `Option` eingepackt:
+```tut
+HexString.smart("abc").get // unsafe!
+```
+
+* Einschränkungen können nicht kombiniert werden (z.B. `HexString`, die mind. 8 Zeichen lang sind)
+
+???
+
+* Literale werden auch zur Laufzeit geprüft obwohl zur Compile-Zeit bereits
+  validiert werden könnte
+
+* Literale aus `Option` auspacken ist unsicher. Wenn das Literal geändert wird
+  oder jemand die Validierung ändert, gibt es erst ein Fehler zur Laufzeit
 
 ---
 # Refinement Types
@@ -214,16 +225,25 @@ Subtyping:
 
 * Makro für die Unterstützung Refinement Subtyping
 
-
 ---
-# Intro
+# Ein einfaches Beispiel
 
+Positive `Int`s:
 ```tut
 val x: Int Refined Positive = 5
 ```
 ```tut:fail
 val y: Int Refined Positive = -5
 ```
+
+???
+
+* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
+  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
+ 
+* `Positive` ist ein Prädikat, dass auf größer 0 prüft
+
+* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
 
 ---
 # HexString mit refined
@@ -242,7 +262,6 @@ type HexString =
 
 HexString ist zusammengesetzt aus:
 
-* `Refined[T, P]`
 * `Forall[Q]`
 * `Digit`
 * `Or[A, B]`
@@ -250,11 +269,11 @@ HexString ist zusammengesetzt aus:
 
 ???
 
-* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
-  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
-
 * `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
   diesen Typen sind 'a' bzw. 'f'
+  
+* Das Prädikat kann z.B. mit logischen Operatoren erweitert werden:
+ `... And MinSize[W.8.T]`
 
 ---
 # Refinements zur Compile-Zeit
@@ -289,6 +308,21 @@ RefType.applyRef[HexString](scala.util.Random.nextString(1))
 ```
 
 ---
+# SIP-23 - Literal-based singleton types
+
+* by George Leontiev, Eugene Burmako, Jason Zaugg, Adriaan Moors,
+Paul Phillips
+
+* http://docs.scala-lang.org/sips/pending/42.type.html
+
+* Would allow literals in any type position
+
+* `Greater[3.14]` instead of ``Greater[W.`3.14`.T]``
+
+* or ``Interval.Closed['a', 'z']`` instead of
+      ``Interval.Closed[W.`'a'`.T, W.`'z'`.T]``
+
+---
 # Refinement Subtyping
 
 Alle `Int`s größer als 5 sind auch größer als 0:
@@ -308,7 +342,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * Zuweisung ist ein Compile-Fehler
 
 ---
-# Prädikate
+# Logische Prädikate
 
 * `True`: constant predicate that is always `true`
 * `False`: constant predicate that is always `false`
@@ -323,7 +357,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `OneOf[PS]`: exclusive disjunction of all predicates in `PS`
 
 ---
-#
+# Prädikate für Chars
 
 * `Digit`: checks if a `Char` is a digit
 * `Letter`: checks if a `Char` is a letter
@@ -333,7 +367,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `Whitespace`: checks if a `Char` is white space
 
 ---
-#
+# Prädikate für Container
 
 * `Contains[U]`: checks if a `Traversable` contains a value equal to `U`
 * `Count[PA, PC]`: counts the number of elements in a `Traversable` which satisfy the
@@ -352,7 +386,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `MaxSize[N]`: checks if the size of a `Traversable` is less than or equal to `N`
 
 ---
-#
+# Numerische Prädikate
 
 * `Less[N]`: checks if a numeric value is less than `N`
 * `LessEqual[N]`: checks if a numeric value is less than or equal to `N`
@@ -367,8 +401,12 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `Interval.ClosedOpen[L, H]`: checks if a numeric value is in the interval [`L`, `H`)
 * `Interval.Closed[L, H]`: checks if a numeric value is in the interval [`L`, `H`]
 
+???
+
+* Nur zwei von diesen Prädikaten sind kein Typalias
+
 ---
-#
+# Prädikate für Strings
 
 * `EndsWith[S]`: checks if a `String` ends with the suffix `S`
 * `MatchesRegex[S]`: checks if a `String` matches the regular expression `S`
@@ -381,19 +419,25 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `XPath`: checks if a `String` is a valid XPath expression
 
 ---
-# SIP-23 - Literal-based singleton types
+# 
 
-* by George Leontiev, Eugene Burmako, Jason Zaugg, Adriaan Moors,
-Paul Phillips
+Implementierung, Validate Typklasse (Interface + Impl)
 
-* http://docs.scala-lang.org/sips/pending/42.type.html
-
-* Would allow literals in any type position
-
-    * `Greater[3.14]` instead of ``Greater[W.`3.14`.T]``
-
-    * or ``Interval.Closed['a', 'z']`` instead of
-      ``Interval.Closed[W.`'a'`.T, W.`'z'`.T]``
+Adhoc-Prädikate
+```tut
+type Prime = Int Refined Eval[W.`"""(i: Int) =>
+    i match {
+      case _ if (i <= 1) => false
+      case _ if (i == 2) => true
+      case _ => !(2 to sqrt(i).toInt).filter(x => x % 2 != 0).exists(x => i % x == 0)
+    }
+  """`.T]
+  
+val p: Prime = 31
+```
+```tut:fail
+val q: Prime = 33
+```
 
 ---
 # refined + [scalacheck](https://www.scalacheck.org/)
