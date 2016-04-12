@@ -55,7 +55,14 @@ sinnvoll ist
 ???
 
 * Das ist ein Problem, weil Typen auch Dokumentation sind
-  (Object < Long < AuftragId < TechnischeAuftragId)
+  (Object < Long < AuftragsId < TechnischeAuftrasgId)
+
+* Je genauer die Datentypen von Parametern sind, umso eingeschränkter
+  die möglichen Implementierungen
+
+* Man kann sich auf Invarianten verlassen anstatt auf sie zu hoffen
+
+* Möglichen Fehlerzustände schrumpfen oder verschwinden
 
 ---
 class: center, middle
@@ -66,21 +73,24 @@ class: center, middle
 https://twitter.com/KenScambler/status/621933432365432832
 
 ---
-# Refinement was?
+# Welche Datentypen verwenden wir?
 
-* types classify values
-* we use ADTs to build our own types
-* some types are priviliged by the language because of literals
-  (primitive types Int, Char, Double, Float, Byte, Short, Boolean)
-  String
+* Primitive Typen: `Int`, `Long`, `Float`, `Double`, `Boolean`, `Byte`, `Short`, `Char`
 
-Datenmodellierung
-- Wir bauen unsere Datentypen aus Primitiven & Strings, vorgegebenen
-  Datenstrukturen, oder Kombination von eigenen Datentypen zusammen
-- Wenn wir Int, String oder Double nehmen, dann gibt es viel viel mehr
-  Zustände als in unserer Domain eigentlich sinnvoll ist
-- wir nutzen oft Datentypen die mehr Werte abbilden, die in unserer Domäne
-  nicht sinnvoll sind. Weil es bequem ist.
+* Datentypen, die unsere Standardbibliothek mitbringt: `String`, `List[T]`, `Date`
+
+* Eigene Typen:
+  ** `class P(a: A, b: B, c: C, ...)`
+  ** `abstract class S; class S1 extends S; class S2 extends S`
+
+* Primite Typen und `String` sind bequem weil unsere Sprachen Literale für diese bereitstellt
+
+???
+
+* Wie erzeuge ich einen Datentyp der die natürlichen Zahlen von 1 bis 10 (100) repräsentiert?
+  `Int`, `Short`, `Byte` oder Summentyp, bei dem alle Werte aufgezählt werden?
+
+* Warum Long für einen Datentyp, wenn Werte nie negativ sein können. Der Compiler pr
 
 ---
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
