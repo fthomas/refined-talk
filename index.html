@@ -40,13 +40,12 @@
     <textarea id="source">
 
 class: center, middle
-# Refinement Types in Scala mit refined
+# Refinement Types in Scala mit [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
 
 ---
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
 
-<small>
 ```scala
 import eu.timepit.refined.W
 import eu.timepit.refined.api.{ Refined, RefType }
@@ -54,19 +53,11 @@ import eu.timepit.refined.auto._
 import eu.timepit.refined.boolean.{ And, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
-import eu.timepit.refined.generic.Equal
+import eu.timepit.refined.generic.{ Eval }
 import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
-import io.circe.generic.auto._
-import io.circe.parser._
-import io.circe.refined._
-import io.circe.syntax._
-import monocle.function.At._
-import monocle.refined._
-import monocle.refined.bits._
-import monocle.syntax.apply._
+import eu.timepit.refined.string.{ MatchesRegex, Regex }
 import scala.sys.process._
 ```
-</small>
 
 ---
 class: center, middle
@@ -119,19 +110,18 @@ https://twitter.com/KenScambler/status/621933432365432832
 ---
 # Datentyp für die Zahlen von 1 bis 8
 
-Eigener Datentyp:
+* Eigener Datentyp:
 ```scala
-abstract class N; class N1 extends N; class N2 extends N; class N3 extends N;
-                  class N4 extends N; class N5 extends N; class N6 extends N;
-                  class N7 extends N; class N8 extends N;
+abstract class N;
+class N1 extends N; class N2 extends N; class N3 extends N; class N4 extends N;
+class N5 extends N; class N6 extends N; class N7 extends N; class N8 extends N;
 ```
 ```scala
 scala> val threeN: N = new N3
-threeN: N = N3@efe1689
+threeN: N = N3@6365a00d
 ```
 
-Oder `Int` verwenden
-
+* Oder `Int` verwenden:
 ```scala
 scala> val threeInt = 3
 threeInt: Int = 3
@@ -142,9 +132,14 @@ threeInt: Int = 3
 * Z.B. für die Linien oder Reihen auf einem Schachbrett
 
 ---
+class: center, middle
+
+## Wie können wir die Wertemenge eines bestehenden Typs einschränken?
+
+---
 # Smarte Konstruktoren
 
-* privater Konstruktor
+* eigentlicher Konstruktor ist privat
 * smarter Konstruktor führt zusätzliche Checks durch
 
 ```scala
@@ -177,7 +172,7 @@ res1: Option[test.HexString] = None
 
 ```scala
 scala> new test.HexString("123abc")
-<console>:51: error: constructor HexString in class HexString cannot be accessed in object $iw
+<console>:28: error: constructor HexString in class HexString cannot be accessed in object $iw
        new test.HexString("123abc")
        ^
 ```
@@ -253,30 +248,6 @@ Subtyping:
 * Makro für die Unterstützung Refinement Subtyping
 
 ---
-# Ein einfaches Beispiel
-
-Positive `Int`s:
-```scala
-scala> val x: Int Refined Positive = 5
-x: Refined[Int,Positive] = 5
-```
-```scala
-scala> val y: Int Refined Positive = -5
-<console>:49: error: Predicate failed: (-5 > 0).
-       val y: Int Refined Positive = -5
-                                      ^
-```
-
-???
-
-* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
-  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
- 
-* `Positive` ist ein Prädikat, dass auf größer 0 prüft
-
-* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
-
----
 # HexString mit refined
 
 ```scala
@@ -293,6 +264,7 @@ type HexString =
 
 HexString ist zusammengesetzt aus:
 
+* `Refined[T, P]`
 * `Forall[Q]`
 * `Digit`
 * `Or[A, B]`
@@ -300,11 +272,40 @@ HexString ist zusammengesetzt aus:
 
 ???
 
+
+* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
+  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
+ 
+* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
+
+
 * `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
   diesen Typen sind 'a' bzw. 'f'
   
 * Das Prädikat kann z.B. mit logischen Operatoren erweitert werden:
  `... And MinSize[W.8.T]`
+
+
+---
+# Literale als Singleton-Typen
+
+```scala
+scala> val x: W.`"abc"`.T = "abc"
+x: String("abc") = abc
+```
+```scala
+scala> val x: W.`"abc"`.T = "xyz"
+<console>:26: error: type mismatch;
+ found   : String("xyz")
+ required: String("abc")
+       val x: W.`"abc"`.T = "xyz"
+                            ^
+```
+
+* SIP-23: http://docs.scala-lang.org/sips/pending/42.type.html
+```scala
+// val x: "abc" = "abc"
+```
 
 ---
 # Refinements zur Compile-Zeit
@@ -318,7 +319,7 @@ res6: HexString = 123abc
 Ungültige Literale führen zu einem Compile-Fehler:
 ```scala
 scala> "A": HexString
-<console>:51: error: Predicate failed: ((isDigit('A') || (!(A < a) && !(A > f)))).
+<console>:28: error: Predicate failed: ((isDigit('A') || (!(A < a) && !(A > f)))).
        "A": HexString
        ^
 ```
@@ -336,29 +337,14 @@ scala> def sha1: String = "git rev-parse HEAD".!!.trim
 sha1: String
 
 scala> RefType.applyRef[HexString](sha1)
-res8: Either[String,HexString] = Right(46a8e5ea3e2482637b3238f9c86ff2fd2a3c6e6b)
+res8: Either[String,HexString] = Right(e6dbebb3878633b1e88c910c692c341f92800243)
 ```
 
 Oder Fehlermeldung links:
 ```scala
 scala> RefType.applyRef[HexString](scala.util.Random.nextString(1))
-res9: Either[String,HexString] = Left(Predicate failed: ((isDigit('獐') || (!(獐 < a) && !(獐 > f)))).)
+res9: Either[String,HexString] = Left(Predicate failed: ((isDigit('쥄') || (!(쥄 < a) && !(쥄 > f)))).)
 ```
-
----
-# SIP-23 - Literal-based singleton types
-
-* by George Leontiev, Eugene Burmako, Jason Zaugg, Adriaan Moors,
-Paul Phillips
-
-* http://docs.scala-lang.org/sips/pending/42.type.html
-
-* Would allow literals in any type position
-
-* `Greater[3.14]` instead of `Greater[W.`3.14`.T]`
-
-* or `Interval.Closed['a', 'z']` instead of
-      `Interval.Closed[W.`'a'`.T, W.`'z'`.T]`
 
 ---
 # Refinement Subtyping
@@ -375,7 +361,7 @@ y: Refined[Int,Greater[Int(0)]] = 100
 Aber nicht alle `Int`s größer als 5 sind auch größer als 10:
 ```scala
 scala> val z: Int Refined Greater[W.`10`.T] = x
-<console>:50: error: type mismatch (invalid inference):
+<console>:27: error: type mismatch (invalid inference):
  Greater[Int(5)] does not imply
  Greater[Int(10)]
        val z: Int Refined Greater[W.`10`.T] = x
@@ -464,47 +450,39 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `XPath`: checks if a `String` is a valid XPath expression
 
 ---
-# 
+# Weitere Beispiele
 
-Implementierung, Validate Typklasse (Interface + Impl)
-
-Adhoc-Prädikate
-
-
----
-# refined + [scalacheck](https://www.scalacheck.org/)
-
----
-# refined + [circe](https://github.com/travisbrown/circe)
-
+* Gültige reguläre Ausdrücke:
 ```scala
-case class CSC(code: String Refined And[Forall[Digit], Size[Equal[W.`3`.T]]])
+scala> "(a|b)": String Refined Regex
+res10: Refined[String,Regex] = (a|b)
 ```
+
+* Strings, die mit drei Ziffern beginnen:
 ```scala
-scala> CSC("321").asJson.noSpaces
-res10: String = {"code":"321"}
+scala> "129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
+res11: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
+```
 
-scala> decode[CSC](""" {"code": "456"} """)
-res11: cats.data.Xor[io.circe.Error,CSC] = Right(CSC(456))
-
-scala> decode[CSC](""" {"code": "4A"} """)
-res12: cats.data.Xor[io.circe.Error,CSC] = Left(DecodingFailure(Both predicates of ((isDigit('4') && isDigit('A')) && (2 == 3)) failed. Left: Predicate failed: (isDigit('4') && isDigit('A')). Right: Predicate taking size(4A) = 2 failed: Predicate failed: (2 == 3)., List(El(DownField(code),true,false))))
+* Ganzzahlen, die ohne Rest durch drei teilbar sind:
+```scala
+scala> 42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
+res12: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
 ```
 
 ---
-# refined + [Monocle](https://github.com/julien-truffaut/Monocle)
+# Zusammenfassung
 
-Bitwise lensing into integral types:
-```scala
-scala> 0.applyLens(at(31: IntBits)).set(true)
-res13: Int = -2147483648
-```
-```scala
-scala> 0.applyLens(at(32: IntBits)).set(true)
-<console>:50: error: Right predicate of (!(32 < 0) && !(32 > 31)) failed: Predicate (32 > 31) did not fail.
-       0.applyLens(at(32: IntBits)).set(true)
-                      ^
-```
+* Wir verwenden oft Typen, die mehr Werte umfassen als in unserer Domäne
+  sinnvoll ist
+
+* Den Wertebereich von existierenden Typen kann man einschränken mit
+
+    * Smarten Konstruktoren (auch in Java)
+
+    * Refinement Types
+
+* Refinement Type = Basistyp + Prädikat
 
 ---
 class: center, middle
