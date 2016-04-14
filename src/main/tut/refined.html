@@ -40,7 +40,7 @@
     <textarea id="source">
 
 class: center, middle
-# Refinement Types in Scala mit refined
+# Refinement Types in Scala mit [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
 
 ---
@@ -53,8 +53,9 @@ import eu.timepit.refined.auto._
 import eu.timepit.refined.boolean.{ And, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
-import eu.timepit.refined.generic.Equal
+import eu.timepit.refined.generic.{ Eval }
 import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
+import eu.timepit.refined.string.{ MatchesRegex, Regex }
 import scala.sys.process._
 ```
 
@@ -239,26 +240,6 @@ Subtyping:
 * Makro für die Unterstützung Refinement Subtyping
 
 ---
-# Ein einfaches Beispiel
-
-Positive `Int`s:
-```tut
-val x: Int Refined Positive = 5
-```
-```tut:fail
-val y: Int Refined Positive = -5
-```
-
-???
-
-* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
-  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
- 
-* `Positive` ist ein Prädikat, dass auf größer 0 prüft
-
-* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
-
----
 # HexString mit refined
 
 ```tut:silent
@@ -275,12 +256,20 @@ type HexString =
 
 HexString ist zusammengesetzt aus:
 
+* `Refined[T, P]`
 * `Forall[Q]`
 * `Digit`
 * `Or[A, B]`
 * `Interval.Closed[L, H]`
 
 ???
+
+
+* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
+  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
+ 
+* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
+
 
 * `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
   diesen Typen sind 'a' bzw. 'f'
@@ -434,6 +423,35 @@ val z: Int Refined Greater[W.`10`.T] = x
 
 ---
 # Weitere Beispiele
+
+* Gültige reguläre Ausdrücke:
+```tut
+"(a|b)": String Refined Regex
+```
+
+* Strings, die mit drei Ziffern beginnen:
+```tut
+"129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
+```
+
+* Ganzzahlen, die ohne Rest durch drei teilbar sind:
+```tut
+42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
+```
+
+---
+# Zusammenfassung
+
+* Wir verwenden oft Typen, die mehr Werte umfassen als in unserer Domäne
+  sinnvoll ist
+
+* Den Wertebereich von existierenden Typen kann man einschränken mit
+
+    * Smarten Konstruktoren (auch in Java)
+
+    * Refinement Types
+
+* Refinement Type = Basistyp + Prädikat
 
 ---
 class: center, middle
