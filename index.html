@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Refinement Types in Scala mit refined</title>
+    <title>Refinement Types in Scala with refined</title>
     <meta charset="utf-8">
     <style>
       @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Sans:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
 
       body {
-        font-family: 'Droid Serif';
+        font-family: 'Droid Sans';
       }
       h1, h2, h3 {
         font-family: 'Yanone Kaffeesatz';
@@ -40,8 +41,174 @@
     <textarea id="source">
 
 class: center, middle
-# Refinement Types in Scala mit [refined](https://github.com/fthomas/refined)
+# Refinement Types in Scala with [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
+
+---
+# $ whoami
+
+---
+class: center, middle
+
+<img src="https://raw.githubusercontent.com/fthomas/refined-talk/master/shakespeare.png"
+  alt="" style="max-width: 75%; max-height: 75%" />
+
+https://twitter.com/KenScambler/status/621933432365432832
+
+---
+# What's the problem with String?
+
+* `String` has no meaning
+
+* A `String` can contain anything
+
+```scala
+case class Config(url: String, gitHash: String)
+
+Config("file:/opt/app", "c4943b6") // Ok
+
+Config("c4943b6", "file:/opt/app") // Production bug inevitable!
+```
+
+---
+# Add meaning and safety with value classes
+
+```scala
+case class Url    (value: String) extends AnyVal
+
+case class GitHash(value: String) extends AnyVal
+
+case class Config(url: Url, gitHash: GitHash)
+```
+
+We can't mix parameters anymore:
+
+```scala
+Config(GitHash("c4943b6"), Url("file:/opt/app")) // does not compile
+```
+
+But our value classes still wrap arbitrary data:
+
+```scala
+Config(Url("c4943b6"), GitHash("file:/opt/app")) // Next production bug ahead!
+```
+
+---
+# Add validation logic: smart constructors
+
+* Hide primary constructor
+
+* Smart constructor performs extra checks
+
+```scala
+object test {
+  case class HexString private (value: String) extends AnyVal
+
+  object HexString {
+    def fromString(s: String): Option[HexString] = {
+      val isHex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
+      if (isHex) Some(new HexString(s)) else None
+    }
+  }
+}
+```
+
+---
+# Smart constructors: advantages
+
+`fromString` creates only valid `HexString`s:
+
+```scala
+scala> test.HexString.fromString("c4943b6")
+res8: Option[test.HexString] = Some(HexString(c4943b6))
+
+scala> test.HexString.fromString("xyz")
+res9: Option[test.HexString] = None
+```
+
+Only `fromString` can create `HexString`s:
+
+```scala
+scala> new test.HexString("c4943b6")
+<console>:14: error: constructor HexString in class HexString cannot be accessed in object $iw
+       new test.HexString("c4943b6")
+       ^
+```
+
+---
+# Smart constructors: disadvantages
+
+* Validation always happens at runtime - even for literals
+
+* Literals are always wrapped:
+
+```scala
+case class GitHash(value: test.HexString)
+```
+```scala
+scala> test.HexString.fromString("c4943b6").map(GitHash)
+res11: Option[GitHash] = Some(GitHash(HexString(c4943b6)))
+```
+
+* They do not compose: Git hashes are between 4 and 40 hex digits long
+
+
+
+
+
+
+---
+Git hash = HexString size >= 4 and <= 40
+
+---
+
+smart constructors allow us to only create "valid" instances
+
+- example, pro and cons
+
+---
+
+refinement types
+
+idea + examples
+
+subtyping + examples
+
+---
+
+singleton types
+
+---
+
+HexString And Size[Interval.Closed[W.`4`.T, 40]]
+
+explain what it is
+
+---
+
+compile time
+
+---
+
+runtime
+
+---
+
+how does it work. macro + runtime
+
+type aliases for compound predicates
+
+---
+
+subtyping example, how does it work
+
+---
+
+show all predicates
+
+---
+
+in combination with circe or monocle
 
 ---
 # Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
@@ -59,27 +226,6 @@ import eu.timepit.refined.string.{ MatchesRegex, Regex }
 import scala.sys.process._
 ```
 
----
-class: center, middle
-
-<img src="https://raw.githubusercontent.com/fthomas/refined-talk/master/shakespeare.png"
-  alt="" style="max-width: 75%; max-height: 75%" />
-
-https://twitter.com/KenScambler/status/621933432365432832
-
-???
-
-* Viele unserer Datentypen umfassen mehr Werte als in unserer Domäne
-  sinnvoll ist
-
-* Das ist ein Problem, weil Typen auch Dokumentation sind
-  (Object < Long < AuftragsId < TechnischeAuftrasgId)
-
-* Man kann sich auf Invarianten verlassen anstatt auf sie zu hoffen
-
-* Möglichen Fehlerzustände schrumpfen oder verschwinden
-
-* Der Compiler soll helfen mehr Fehler zu vermeiden
 
 ---
 # Welche Datentypen verwenden wir?
@@ -118,7 +264,7 @@ class N5 extends N; class N6 extends N; class N7 extends N; class N8 extends N;
 ```
 ```scala
 scala> val threeN: N = new N3
-threeN: N = N3@6365a00d
+threeN: N = N3@308dc662
 ```
 
 * Oder `Int` verwenden:
@@ -135,74 +281,6 @@ threeInt: Int = 3
 class: center, middle
 
 ## Wie können wir die Wertemenge eines bestehenden Typs einschränken?
-
----
-# Smarte Konstruktoren
-
-* eigentlicher Konstruktor ist privat
-* smarter Konstruktor führt zusätzliche Checks durch
-
-```scala
-object test {
-  case class HexString private (value: String)
-
-  object HexString {
-    def smart(s: String): Option[HexString] = {
-      val isHex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
-      if (isHex) Some(new HexString(s)) else None
-    }
-  }
-}
-```
-
----
-# Smarte Konstruktoren - Verwendung
-
-* `smart` erzeugt nur valide `HexString`s:
-
-```scala
-scala> test.HexString.smart("123abc")
-res0: Option[test.HexString] = Some(HexString(123abc))
-
-scala> test.HexString.smart("A")
-res1: Option[test.HexString] = None
-```
-
-* Nur `smart` kann `HexString`s erzeugen:
-
-```scala
-scala> new test.HexString("123abc")
-<console>:28: error: constructor HexString in class HexString cannot be accessed in object $iw
-       new test.HexString("123abc")
-       ^
-```
-
----
-# Smarte Konstruktoren - Vor- und Nachteile
-
-Vorteile:
-
-* Wir können nur valide HexStrings erzeugen!
-
-Nachteile:
-
-* Prüfung findet immer zur Laufzeit statt
-
-* Auch Literale werden in `Option` eingepackt:
-```scala
-scala> test.HexString.smart("abc").get // unsafe!
-res3: test.HexString = HexString(abc)
-```
-
-* Einschränkungen können nicht kombiniert werden (z.B. `HexString`, die mind. 8 Zeichen lang sind)
-
-???
-
-* Literale werden auch zur Laufzeit geprüft obwohl zur Compile-Zeit bereits
-  validiert werden könnte
-
-* Literale aus `Option` auspacken ist unsicher. Wenn das Literal geändert wird
-  oder jemand die Validierung ändert, gibt es erst ein Fehler zur Laufzeit
 
 ---
 # Refinement Types
@@ -313,7 +391,7 @@ scala> val x: W.`"abc"`.T = "xyz"
 Validierung von Literalen zur Compile-Zeit:
 ```scala
 scala> "123abc": HexString
-res6: HexString = 123abc
+res14: HexString = 123abc
 ```
 
 Ungültige Literale führen zu einem Compile-Fehler:
@@ -337,13 +415,13 @@ scala> def sha1: String = "git rev-parse HEAD".!!.trim
 sha1: String
 
 scala> RefType.applyRef[HexString](sha1)
-res8: Either[String,HexString] = Right(e6dbebb3878633b1e88c910c692c341f92800243)
+res16: Either[String,HexString] = Right(d5d35438d846c97a46a2beb25fd3c776d24515e3)
 ```
 
 Oder Fehlermeldung links:
 ```scala
 scala> RefType.applyRef[HexString](scala.util.Random.nextString(1))
-res9: Either[String,HexString] = Left(Predicate failed: ((isDigit('쥄') || (!(쥄 < a) && !(쥄 > f)))).)
+res17: Either[String,HexString] = Left(Predicate failed: ((isDigit('雬') || (!(雬 < a) && !(雬 > f)))).)
 ```
 
 ---
@@ -455,19 +533,19 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * Gültige reguläre Ausdrücke:
 ```scala
 scala> "(a|b)": String Refined Regex
-res10: Refined[String,Regex] = (a|b)
+res18: Refined[String,Regex] = (a|b)
 ```
 
 * Strings, die mit drei Ziffern beginnen:
 ```scala
 scala> "129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
-res11: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
+res19: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
 ```
 
 * Ganzzahlen, die ohne Rest durch drei teilbar sind:
 ```scala
 scala> 42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
-res12: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
+res20: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
 ```
 
 ---
