@@ -44,8 +44,33 @@ class: center, middle
 # Refinement Types in Scala with [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
 
+
 ---
 # $ whoami
+
+* Discovered Scala in 2011
+
+* 2013 October -> 2015 April scalaz-stream, now fs2
+
+* 2015 February ->  cats
+
+* 2016 May until now refined
+
+---
+# This talk was compiled with [tut](https://github.com/tpolecat/tut)
+
+```scala
+import eu.timepit.refined.W
+import eu.timepit.refined.api.{ Refined, RefType }
+import eu.timepit.refined.auto._
+import eu.timepit.refined.boolean.{ And, Or }
+import eu.timepit.refined.char.Digit
+import eu.timepit.refined.collection.{ Forall, Size }
+import eu.timepit.refined.generic.{ Eval }
+import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
+import eu.timepit.refined.string.{ MatchesRegex, Regex }
+import scala.sys.process._
+```
 
 ---
 class: center, middle
@@ -63,7 +88,7 @@ https://twitter.com/KenScambler/status/621933432365432832
 * A `String` can contain anything
 
 ```scala
-case class Config(url: String, gitHash: String)
+final case class Config(url: String, gitHash: String)
 
 Config("file:/opt/app", "c4943b6") // Ok
 
@@ -74,11 +99,11 @@ Config("c4943b6", "file:/opt/app") // Production bug inevitable!
 # Add meaning and safety with value classes
 
 ```scala
-case class Url    (value: String) extends AnyVal
+final case class Url    (value: String) extends AnyVal
 
-case class GitHash(value: String) extends AnyVal
+final case class GitHash(value: String) extends AnyVal
 
-case class Config(url: Url, gitHash: GitHash)
+final case class Config(url: Url, gitHash: GitHash)
 ```
 
 We can't mix parameters anymore:
@@ -102,87 +127,157 @@ Config(Url("c4943b6"), GitHash("file:/opt/app")) // Next production bug ahead!
 
 ```scala
 object test {
-  case class HexString private (value: String) extends AnyVal
+  final case class GitHash private (value: String) extends AnyVal
 
-  object HexString {
-    def fromString(s: String): Option[HexString] = {
-      val isHex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
-      if (isHex) Some(new HexString(s)) else None
+  object GitHash {
+    def fromString(s: String): Option[GitHash] = {
+      def short = (s.length >= 4 && s.length <= 40)
+      def hex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
+      if (short && hex) Some(new GitHash(s)) else None
     }
   }
 }
 ```
 
 ---
-# Smart constructors: advantages
+# Smart constructors: the Good
 
 `fromString` creates only valid `HexString`s:
 
 ```scala
-scala> test.HexString.fromString("c4943b6")
-res8: Option[test.HexString] = Some(HexString(c4943b6))
+scala> test.GitHash.fromString("c4943b6")
+res8: Option[test.GitHash] = Some(GitHash(c4943b6))
 
-scala> test.HexString.fromString("xyz")
-res9: Option[test.HexString] = None
+scala> test.GitHash.fromString("xyz")
+res9: Option[test.GitHash] = None
 ```
 
-Only `fromString` can create `HexString`s:
+Only `fromString` can create `GitHash`es:
 
 ```scala
-scala> new test.HexString("c4943b6")
-<console>:14: error: constructor HexString in class HexString cannot be accessed in object $iw
-       new test.HexString("c4943b6")
+scala> new test.GitHash("c4943b6")
+<console>:30: error: constructor GitHash in class GitHash cannot be accessed in object $iw
+       new test.GitHash("c4943b6")
        ^
 ```
 
 ---
-# Smart constructors: disadvantages
+# Smart constructors: the Bad and the Ugly
 
-* Validation always happens at runtime - even for literals
-
-* Literals are always wrapped:
+Literals are always wrapped
 
 ```scala
-case class GitHash(value: test.HexString)
+scala> test.GitHash.fromString("c4943b6")
+res11: Option[test.GitHash] = Some(GitHash(c4943b6))
+
+scala> test.GitHash.fromString("c4943b6").get
+res12: test.GitHash = GitHash(c4943b6)
+```
+
+Validation always happens at runtime - even for statically known values
+
+---
+
+What do we want?
+
+---
+# Refinement types
+
+Basic idea:
+
+* refinement type = 
+  <span style="color:#FFC000">**base type**</span> +
+  <span style="color:#FFC000">**predicate**</span>
+
+* values of a refinement type = all values of the base type that
+  <span style="color:#FFC000">**satisfy the predicate**</span>
+
+<br/>
+
+Examples (using fantasy syntax):
+
+* `Int with (i => i > 0)`
+
+* `String with (s => s.forall(c => c.isDigit || ('a' to 'f').contains(c)))`
+
+---
+# Refinement subtyping
+
+Refinements only constraint existing types, so we have these "natural"
+subtyping relations:
+
+* <code>
+    (T with P) <span style="color:orangered">&lt;:</span> T
+  </code>
+
+* <code>
+    (T with P)
+    <span style="color:orangered">&lt;:</span>
+    (T with Q) &nbsp; if forall (t: T with P): Q(t)
+  </code>
+
+<br/>
+
+Examples:
+
+* <code>
+    Int with (i => i > 20)
+    <span style="color:orangered">&lt;:</span>
+    Int with (i => i > 10)
+  </code>
+
+* <code>
+    Int with (i =>
+      <span style="color:lightgreen">p(i)</span> &&
+      <span style="color:orange">q(i)</span>)
+    <span style="color:orangered">&lt;:</span>
+    Int with (i =>
+      <span style="color:lightgreen">p(i)</span>)
+  </code>
+
+???
+
+* this is a kind of structural and strong behavioral subtyping
+
+---
+# Using literals at the type-level
+
+We can use `shapeless.Witness` to express literal-based singleton types:
+
+```scala
+scala> val x: W.`"abc"`.T = "abc"
+x: String("abc") = abc
 ```
 ```scala
-scala> test.HexString.fromString("c4943b6").map(GitHash)
-res11: Option[GitHash] = Some(GitHash(HexString(c4943b6)))
+scala> val x: W.`"abc"`.T = "xyz"
+<console>:26: error: type mismatch;
+ found   : String("xyz")
+ required: String("abc")
+       val x: W.`"abc"`.T = "xyz"
+                            ^
 ```
 
-* They do not compose: Git hashes are between 4 and 40 hex digits long
+Hopefully soon in regular Scala:
+[SIP-23](http://docs.scala-lang.org/sips/pending/42.type.html)
 
+???
 
-
-
-
-
----
-Git hash = HexString size >= 4 and <= 40
+* "abc" is the type inhabited by the value "abc"
 
 ---
+# GitHash with refined
 
-smart constructors allow us to only create "valid" instances
+```scala
+// value level predicate
+def isGitHash(s: String): Boolean =
+  s.size >= 4 && s.size <= 40 && (
+    s.forall(c => c.isDigit || ('a' to 'f').contains(c)))
 
-- example, pro and cons
-
----
-
-refinement types
-
-idea + examples
-
-subtyping + examples
-
----
-
-singleton types
-
----
-
-HexString And Size[Interval.Closed[W.`4`.T, 40]]
-
-explain what it is
+// type-level predicate
+type GitHash = String Refined And[
+  Size[Interval.Closed[W.`4`.T, W.`40`.T]],
+  Forall[Or[Digit, Interval.Closed[W.`'a'`.T, W.`'f'`.T]]]]
+```
 
 ---
 
@@ -210,72 +305,12 @@ show all predicates
 
 in combination with circe or monocle
 
----
-# Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
-
-```scala
-import eu.timepit.refined.W
-import eu.timepit.refined.api.{ Refined, RefType }
-import eu.timepit.refined.auto._
-import eu.timepit.refined.boolean.{ And, Or }
-import eu.timepit.refined.char.Digit
-import eu.timepit.refined.collection.{ Forall, Size }
-import eu.timepit.refined.generic.{ Eval }
-import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
-import eu.timepit.refined.string.{ MatchesRegex, Regex }
-import scala.sys.process._
-```
-
 
 ---
-# Welche Datentypen verwenden wir?
+class: center, middle
 
-* Primitive Typen: `Int`, `Double`, `Boolean`, etc
+# Thanks!
 
-* Typen aus der Standardbibliothek:
-  `String`, `List[T]`, `Date`
-
-* Eigene Typen:
-
-    * `class P(a: A, b: B, c: C, ...)`
-
-    * `abstract class S; class S1 extends S; class S2 extends S; ...`
-
-???
-
-* Primite Typen und `String` sind bequem weil es für diese Literale gibt
-
-* Wie erzeuge ich einen Datentyp der die natürlichen Zahlen von 1 bis 10
-  (100) repräsentiert? `Int`, `Short`, `Byte` oder Summentyp, bei dem alle
-  Werte aufgezählt werden?
-
-* Warum Long für einen Datentyp, wenn Werte nie negativ sein können.
-  Der Compiler hilft hier nicht.
-  Wenn wir defensiv programmieren, müsste wir immer damit rechnen.
-
----
-# Datentyp für die Zahlen von 1 bis 8
-
-* Eigener Datentyp:
-```scala
-abstract class N;
-class N1 extends N; class N2 extends N; class N3 extends N; class N4 extends N;
-class N5 extends N; class N6 extends N; class N7 extends N; class N8 extends N;
-```
-```scala
-scala> val threeN: N = new N3
-threeN: N = N3@308dc662
-```
-
-* Oder `Int` verwenden:
-```scala
-scala> val threeInt = 3
-threeInt: Int = 3
-```
-
-???
-
-* Z.B. für die Linien oder Reihen auf einem Schachbrett
 
 ---
 class: center, middle
@@ -365,33 +400,13 @@ HexString ist zusammengesetzt aus:
 
 
 ---
-# Literale als Singleton-Typen
-
-```scala
-scala> val x: W.`"abc"`.T = "abc"
-x: String("abc") = abc
-```
-```scala
-scala> val x: W.`"abc"`.T = "xyz"
-<console>:26: error: type mismatch;
- found   : String("xyz")
- required: String("abc")
-       val x: W.`"abc"`.T = "xyz"
-                            ^
-```
-
-* SIP-23: http://docs.scala-lang.org/sips/pending/42.type.html
-```scala
-// val x: "abc" = "abc"
-```
-
 ---
 # Refinements zur Compile-Zeit
 
 Validierung von Literalen zur Compile-Zeit:
 ```scala
 scala> "123abc": HexString
-res14: HexString = 123abc
+res18: HexString = 123abc
 ```
 
 Ungültige Literale führen zu einem Compile-Fehler:
@@ -415,13 +430,13 @@ scala> def sha1: String = "git rev-parse HEAD".!!.trim
 sha1: String
 
 scala> RefType.applyRef[HexString](sha1)
-res16: Either[String,HexString] = Right(d5d35438d846c97a46a2beb25fd3c776d24515e3)
+res20: Either[String,HexString] = Right(d5d35438d846c97a46a2beb25fd3c776d24515e3)
 ```
 
 Oder Fehlermeldung links:
 ```scala
 scala> RefType.applyRef[HexString](scala.util.Random.nextString(1))
-res17: Either[String,HexString] = Left(Predicate failed: ((isDigit('雬') || (!(雬 < a) && !(雬 > f)))).)
+res21: Either[String,HexString] = Left(Predicate failed: ((isDigit('᷂') || (!(᷂ < a) && !(᷂ > f)))).)
 ```
 
 ---
@@ -533,19 +548,19 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * Gültige reguläre Ausdrücke:
 ```scala
 scala> "(a|b)": String Refined Regex
-res18: Refined[String,Regex] = (a|b)
+res22: Refined[String,Regex] = (a|b)
 ```
 
 * Strings, die mit drei Ziffern beginnen:
 ```scala
 scala> "129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
-res19: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
+res23: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
 ```
 
 * Ganzzahlen, die ohne Rest durch drei teilbar sind:
 ```scala
 scala> 42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
-res20: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
+res24: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
 ```
 
 ---
@@ -561,11 +576,6 @@ res20: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
     * Refinement Types
 
 * Refinement Type = Basistyp + Prädikat
-
----
-class: center, middle
-
-# Danke!
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js"></script>
