@@ -44,31 +44,22 @@ class: center, middle
 # Refinement Types in Scala with [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
 
-
----
-# $ whoami
-
-* Discovered Scala in 2011
-
-* 2013 October -> 2015 April scalaz-stream, now fs2
-
-* 2015 February ->  cats
-
-* 2016 May until now refined
-
+GitHub: [@fthomas](https://github.com/fthomas) /
+Twitter: [@fst9000](https://twitter.com/fst9000)
 ---
 # This talk was compiled with [tut](https://github.com/tpolecat/tut)
 
 ```scala
 import eu.timepit.refined.W
-import eu.timepit.refined.api.{ Refined, RefType }
+import eu.timepit.refined.api.{ Refined, RefType, Inference, Validate }
 import eu.timepit.refined.auto._
-import eu.timepit.refined.boolean.{ And, Or }
+import eu.timepit.refined.boolean.{ And, Not, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
 import eu.timepit.refined.generic.{ Eval }
 import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
 import eu.timepit.refined.string.{ MatchesRegex, Regex }
+import shapeless.Witness
 import scala.sys.process._
 ```
 
@@ -90,7 +81,7 @@ https://twitter.com/KenScambler/status/621933432365432832
 ```scala
 final case class Config(url: String, gitHash: String)
 
-Config("file:/opt/app", "c4943b6") // Ok
+Config("file:/opt/app", "c4943b6") // ok
 
 Config("c4943b6", "file:/opt/app") // Production bug inevitable!
 ```
@@ -131,9 +122,11 @@ object test {
 
   object GitHash {
     def fromString(s: String): Option[GitHash] = {
-      def short = (s.length >= 4 && s.length <= 40)
-      def hex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
-      if (short && hex) Some(new GitHash(s)) else None
+      def isGitHash(s: String): Boolean =
+        (s.length >= 4 && s.length <= 40 &&
+          s.forall(c => c.isDigit || ('a' to 'f').contains(c)))
+
+      if (isGitHash(s)) Some(new GitHash(s)) else None
     }
   }
 }
@@ -142,7 +135,7 @@ object test {
 ---
 # Smart constructors: the Good
 
-`fromString` creates only valid `HexString`s:
+`fromString` creates only valid `GitHash`es:
 
 ```scala
 scala> test.GitHash.fromString("c4943b6")
@@ -156,7 +149,7 @@ Only `fromString` can create `GitHash`es:
 
 ```scala
 scala> new test.GitHash("c4943b6")
-<console>:30: error: constructor GitHash in class GitHash cannot be accessed in object $iw
+<console>:31: error: constructor GitHash in class GitHash cannot be accessed in object $iw
        new test.GitHash("c4943b6")
        ^
 ```
@@ -177,8 +170,11 @@ res12: test.GitHash = GitHash(c4943b6)
 Validation always happens at runtime - even for statically known values
 
 ---
+# What do we want?
 
-What do we want?
+* **Safety** of smart constructors
+
+* **Convenience** when using literals
 
 ---
 # Refinement types
@@ -207,12 +203,14 @@ Refinements only constraint existing types, so we have these "natural"
 subtyping relations:
 
 * <code>
-    (T with P) <span style="color:orangered">&lt;:</span> T
+    (T with P)
+    <span class="hljs-keyword">&lt;:</span>
+    T
   </code>
 
 * <code>
     (T with P)
-    <span style="color:orangered">&lt;:</span>
+    <span class="hljs-keyword">&lt;:</span>
     (T with Q) &nbsp; if forall (t: T with P): Q(t)
   </code>
 
@@ -222,17 +220,14 @@ Examples:
 
 * <code>
     Int with (i => i > 20)
-    <span style="color:orangered">&lt;:</span>
+    <span class="hljs-keyword">&lt;:</span>
     Int with (i => i > 10)
   </code>
 
 * <code>
-    Int with (i =>
-      <span style="color:lightgreen">p(i)</span> &&
-      <span style="color:orange">q(i)</span>)
-    <span style="color:orangered">&lt;:</span>
-    Int with (i =>
-      <span style="color:lightgreen">p(i)</span>)
+    Int with (i => p(i) && q(i))
+    <span class="hljs-keyword">&lt;:</span>
+    Int with (i => p(i))
   </code>
 
 ???
@@ -240,7 +235,7 @@ Examples:
 * this is a kind of structural and strong behavioral subtyping
 
 ---
-# Using literals at the type-level
+# Literals at the type-level
 
 We can use `shapeless.Witness` to express literal-based singleton types:
 
@@ -250,7 +245,7 @@ x: String("abc") = abc
 ```
 ```scala
 scala> val x: W.`"abc"`.T = "xyz"
-<console>:26: error: type mismatch;
+<console>:27: error: type mismatch;
  found   : String("xyz")
  required: String("abc")
        val x: W.`"abc"`.T = "xyz"
@@ -260,6 +255,8 @@ scala> val x: W.`"abc"`.T = "xyz"
 Hopefully soon in regular Scala:
 [SIP-23](http://docs.scala-lang.org/sips/pending/42.type.html)
 
+Already in Dotty: https://github.com/lampepfl/dotty/pull/771 ;-)
+
 ???
 
 * "abc" is the type inhabited by the value "abc"
@@ -268,181 +265,86 @@ Hopefully soon in regular Scala:
 # GitHash with refined
 
 ```scala
-// value level predicate
+// GitHash defined with refined's type-level predicates:
+type GitHash = String Refined
+  And[Size[Interval.Closed[W.`4`.T, W.`40`.T]],
+      Forall[Or[Digit, Interval.Closed[W.`'a'`.T, W.`'f'`.T]]]]
+
+// value-level predicate we used in the smart constructor:
 def isGitHash(s: String): Boolean =
-  s.size >= 4 && s.size <= 40 && (
+  (s.length >= 4 && s.length <= 40 &&
     s.forall(c => c.isDigit || ('a' to 'f').contains(c)))
-
-// type-level predicate
-type GitHash = String Refined And[
-  Size[Interval.Closed[W.`4`.T, W.`40`.T]],
-  Forall[Or[Digit, Interval.Closed[W.`'a'`.T, W.`'f'`.T]]]]
 ```
 
 ---
+# Refining values at compile-time
 
-compile time
-
----
-
-runtime
-
----
-
-how does it work. macro + runtime
-
-type aliases for compound predicates
-
----
-
-subtyping example, how does it work
-
----
-
-show all predicates
-
----
-
-in combination with circe or monocle
-
-
----
-class: center, middle
-
-# Thanks!
-
-
----
-class: center, middle
-
-## Wie können wir die Wertemenge eines bestehenden Typs einschränken?
-
----
-# Refinement Types
-
-Grundidee:
-
-* <span style="color:#FFC000">**Basistyp**</span> wird mit einem
-  <span style="color:#FFC000">**Prädikat**</span> angereichert
-
-* Werte diesen Typs <span style="color:#FFC000">**genügen dem Prädikat**</span>
-
-Beispiele:
-
-* `Int with (i => i > 0)`
-
-* `String with (s => s.size >= 8)`
-
-Subtyping:
-
-* `(T with P) <: T`
-
-* `(T with P) <: (T with Q)` wenn für alle `t &isin; (T with P)` gilt:
-  `Q(t) == true`
-
-???
-
-* Laufzeit-Repräsentation entspricht dem Basistyp
-
-* Refinement Types können Vorbedingungen (Parametertyp) und
-  Nachbedingungen (Rückgabetyp) ausdrücken
-
-* `T with P` kann überall dort verwendet werden wo ein T benötigt wird
-
----
-# refined, die Bibliothek
-
-* Implementiert Refinement Types
-
-* Eine Reihe Typelevel-Prädikaten, die miteinander kombiniert werden können
-
-* Makro für die Validierung von Literalen
-
-* Makro für die Unterstützung Refinement Subtyping
-
----
-# HexString mit refined
+Refining literals at compile-time:
 
 ```scala
-// Prädikat auf Wertebene
-def isHex(s: String): Boolean =
-  s.forall(c => c.isDigit || ('a' to 'f').contains(c))
+scala> "c4943b6": GitHash
+res16: GitHash = c4943b6
 ```
 
+Invalid literals lead to a compile error:
+
 ```scala
-// Prädikat auf Typebene
-type HexString =
-  String Refined Forall[Digit Or (Interval.Closed[W.`'a'`.T, W.`'f'`.T])]
-```
-
-HexString ist zusammengesetzt aus:
-
-* `Refined[T, P]`
-* `Forall[Q]`
-* `Digit`
-* `Or[A, B]`
-* `Interval.Closed[L, H]`
-
-???
-
-
-* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
-  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
- 
-* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
-
-
-* `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
-  diesen Typen sind 'a' bzw. 'f'
-  
-* Das Prädikat kann z.B. mit logischen Operatoren erweitert werden:
- `... And MinSize[W.8.T]`
-
-
----
----
-# Refinements zur Compile-Zeit
-
-Validierung von Literalen zur Compile-Zeit:
-```scala
-scala> "123abc": HexString
-res18: HexString = 123abc
-```
-
-Ungültige Literale führen zu einem Compile-Fehler:
-```scala
-scala> "A": HexString
-<console>:28: error: Predicate failed: ((isDigit('A') || (!(A < a) && !(A > f)))).
-       "A": HexString
+scala> "X": GitHash
+<console>:29: error: Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('X') || (!(X < a) && !(X > f))))) failed. Left: Predicate taking size(X) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('X') || (!(X < a) && !(X > f)))).
+       "X": GitHash
        ^
 ```
 
-Refinements zur Compile-Zeit haben **keinen** Laufzeit-Overhead!
+Validation happens only at compile-time!
 
 ---
-# Refinements zur Laufzeit
+# Refining values at runtime
 
-Was ist mit Werten, die erst zur Laufzeit bekannt sind?
+How do we handle values that are only known at runtime?
 
-Refined Wert rechts:
 ```scala
-scala> def sha1: String = "git rev-parse HEAD".!!.trim
-sha1: String
-
-scala> RefType.applyRef[HexString](sha1)
-res20: Either[String,HexString] = Right(d5d35438d846c97a46a2beb25fd3c776d24515e3)
+def head: String = "git rev-parse HEAD".!!.trim
 ```
 
-Oder Fehlermeldung links:
+Refined value on the right:
+
 ```scala
-scala> RefType.applyRef[HexString](scala.util.Random.nextString(1))
-res21: Either[String,HexString] = Left(Predicate failed: ((isDigit('᷂') || (!(᷂ < a) && !(᷂ > f)))).)
+scala> RefType.applyRef[GitHash](head)
+res18: Either[String,GitHash] = Right(d5d35438d846c97a46a2beb25fd3c776d24515e3)
+```
+
+Or error message on the left:
+
+```scala
+scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
+res19: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('ऌ') || (!(ऌ < a) && !(ऌ > f))))) failed. Left: Predicate taking size(ऌ) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('ऌ') || (!(ऌ < a) && !(ऌ > f)))).)
 ```
 
 ---
-# Refinement Subtyping
+# How does that work?
 
-Alle `Int`s größer als 5 sind auch größer als 0:
+* A primitive predicate is a class and `Validate` type class instance:
+
+```scala
+case class Letter()
+
+implicit def letterValidate: Validate.Plain[Char, Letter] =
+  Validate.fromPredicate(_.isLetter, t => s"isLetter('$t')", Letter())
+```
+
+* Predicates are composable:
+
+```scala
+type Exists[P] = Not[Forall[Not[P]]]
+```
+
+* Macro evaluates `Validate` instances and uses them for checking literals
+
+---
+# Refinement subtyping
+
+All `Int`s greater than 5 are also greater than 0:
+
 ```scala
 scala> val x: Int Refined Greater[W.`5`.T] = 100
 x: Refined[Int,Greater[Int(5)]] = 100
@@ -451,22 +353,35 @@ scala> val y: Int Refined Greater[W.`0`.T] = x
 y: Refined[Int,Greater[Int(0)]] = 100
 ```
 
-Aber nicht alle `Int`s größer als 5 sind auch größer als 10:
+But not all `Int`s greater than 5 are also greater than 10:
+
 ```scala
 scala> val z: Int Refined Greater[W.`10`.T] = x
-<console>:27: error: type mismatch (invalid inference):
+<console>:31: error: type mismatch (invalid inference):
  Greater[Int(5)] does not imply
  Greater[Int(10)]
        val z: Int Refined Greater[W.`10`.T] = x
                                               ^
 ```
 
-???
+---
+# How does that work?
 
-* Zuweisung ist ein Compile-Fehler
+* Type class `Inference[P, C]` that specifies if `T Refined P` is a
+  subtype of `T Refined C`:
+
+```scala
+implicit def greaterInferenceWit[C, A <: C, B <: C](
+  implicit wa: Witness.Aux[A], wb: Witness.Aux[B], nc: Numeric[C]
+): Inference[Greater[A], Greater[B]] =
+  Inference(nc.gt(wa.value, wb.value), "...")
+```
+
+* Macro that rewrites `T Refined P` to `T Refined C` if it finds
+  a valid `Inference[P, C]`
 
 ---
-# Logische Prädikate
+# Logical predicates
 
 * `True`: constant predicate that is always `true`
 * `False`: constant predicate that is always `false`
@@ -481,7 +396,7 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `OneOf[PS]`: exclusive disjunction of all predicates in `PS`
 
 ---
-# Prädikate für Chars
+# Char predicates
 
 * `Digit`: checks if a `Char` is a digit
 * `Letter`: checks if a `Char` is a letter
@@ -491,7 +406,7 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `Whitespace`: checks if a `Char` is white space
 
 ---
-# Prädikate für Container
+# Collection predicates
 
 * `Contains[U]`: checks if a `Traversable` contains a value equal to `U`
 * `Count[PA, PC]`: counts the number of elements in a `Traversable` which satisfy the
@@ -510,7 +425,7 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `MaxSize[N]`: checks if the size of a `Traversable` is less than or equal to `N`
 
 ---
-# Numerische Prädikate
+# Numeric predicates
 
 * `Less[N]`: checks if a numeric value is less than `N`
 * `LessEqual[N]`: checks if a numeric value is less than or equal to `N`
@@ -525,12 +440,8 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `Interval.ClosedOpen[L, H]`: checks if a numeric value is in the interval [`L`, `H`)
 * `Interval.Closed[L, H]`: checks if a numeric value is in the interval [`L`, `H`]
 
-???
-
-* Nur zwei von diesen Prädikaten sind kein Typalias
-
 ---
-# Prädikate für Strings
+# String predicates
 
 * `EndsWith[S]`: checks if a `String` ends with the suffix `S`
 * `MatchesRegex[S]`: checks if a `String` matches the regular expression `S`
@@ -543,39 +454,33 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 * `XPath`: checks if a `String` is a valid XPath expression
 
 ---
-# Weitere Beispiele
+# More exotic examples
 
-* Gültige reguläre Ausdrücke:
+Valid regular expressions:
+
 ```scala
 scala> "(a|b)": String Refined Regex
-res22: Refined[String,Regex] = (a|b)
+res21: Refined[String,Regex] = (a|b)
 ```
 
-* Strings, die mit drei Ziffern beginnen:
+`String`s that match a given regex:
+
 ```scala
 scala> "129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
-res23: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
+res22: Refined[String,MatchesRegex[String("[0-9]{3}.*")]] = 129a
 ```
 
-* Ganzzahlen, die ohne Rest durch drei teilbar sind:
+`Int`s that are divisible by 3:
+
 ```scala
 scala> 42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
-res24: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
+res23: Refined[Int,Eval[String("(i: Int) => i % 3 == 0")]] = 42
 ```
 
 ---
-# Zusammenfassung
+class: center, middle
 
-* Wir verwenden oft Typen, die mehr Werte umfassen als in unserer Domäne
-  sinnvoll ist
-
-* Den Wertebereich von existierenden Typen kann man einschränken mit
-
-    * Smarten Konstruktoren (auch in Java)
-
-    * Refinement Types
-
-* Refinement Type = Basistyp + Prädikat
+# Thanks!
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js"></script>
