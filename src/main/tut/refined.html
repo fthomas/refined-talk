@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Refinement Types in Scala mit refined</title>
+    <title>Refinement Types in Scala with refined</title>
     <meta charset="utf-8">
     <style>
       @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Sans:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
 
       body {
-        font-family: 'Droid Serif';
+        font-family: 'Droid Sans';
       }
       h1, h2, h3 {
         font-family: 'Yanone Kaffeesatz';
@@ -40,22 +41,25 @@
     <textarea id="source">
 
 class: center, middle
-# Refinement Types in Scala mit [refined](https://github.com/fthomas/refined)
+# Refinement Types in Scala with [refined](https://github.com/fthomas/refined)
 ## Frank S. Thomas
 
+GitHub: [@fthomas](https://github.com/fthomas) /
+Twitter: [@fst9000](https://twitter.com/fst9000)
 ---
-# Dieser Vortrag wurde von [tut](https://github.com/tpolecat/tut) maschinell geprüft
+# This talk was compiled with [tut](https://github.com/tpolecat/tut)
 
 ```tut:silent
 import eu.timepit.refined.W
-import eu.timepit.refined.api.{ Refined, RefType }
+import eu.timepit.refined.api.{ Refined, RefType, Inference, Validate }
 import eu.timepit.refined.auto._
-import eu.timepit.refined.boolean.{ And, Or }
+import eu.timepit.refined.boolean.{ And, Not, Or }
 import eu.timepit.refined.char.Digit
 import eu.timepit.refined.collection.{ Forall, Size }
 import eu.timepit.refined.generic.{ Eval }
 import eu.timepit.refined.numeric.{ Greater, Interval, Positive }
 import eu.timepit.refined.string.{ MatchesRegex, Regex }
+import shapeless.Witness
 import scala.sys.process._
 ```
 
@@ -67,219 +71,166 @@ class: center, middle
 
 https://twitter.com/KenScambler/status/621933432365432832
 
-???
-
-* Viele unserer Datentypen umfassen mehr Werte als in unserer Domäne
-  sinnvoll ist
-
-* Das ist ein Problem, weil Typen auch Dokumentation sind
-  (Object < Long < AuftragsId < TechnischeAuftrasgId)
-
-* Man kann sich auf Invarianten verlassen anstatt auf sie zu hoffen
-
-* Möglichen Fehlerzustände schrumpfen oder verschwinden
-
-* Der Compiler soll helfen mehr Fehler zu vermeiden
-
 ---
-# Welche Datentypen verwenden wir?
+# What's the problem with String?
 
-* Primitive Typen: `Int`, `Double`, `Boolean`, etc
+* `String` has no meaning
 
-* Typen aus der Standardbibliothek:
-  `String`, `List[T]`, `Date`
+* A `String` can contain anything
 
-* Eigene Typen:
-
-    * `class P(a: A, b: B, c: C, ...)`
-
-    * `abstract class S; class S1 extends S; class S2 extends S; ...`
-
-???
-
-* Primite Typen und `String` sind bequem weil es für diese Literale gibt
-
-* Wie erzeuge ich einen Datentyp der die natürlichen Zahlen von 1 bis 10
-  (100) repräsentiert? `Int`, `Short`, `Byte` oder Summentyp, bei dem alle
-  Werte aufgezählt werden?
-
-* Warum Long für einen Datentyp, wenn Werte nie negativ sein können.
-  Der Compiler hilft hier nicht.
-  Wenn wir defensiv programmieren, müsste wir immer damit rechnen.
-
----
-# Datentyp für die Zahlen von 1 bis 8
-
-* Eigener Datentyp:
 ```tut:silent
-abstract class N;
-class N1 extends N; class N2 extends N; class N3 extends N; class N4 extends N;
-class N5 extends N; class N6 extends N; class N7 extends N; class N8 extends N;
-```
-```tut
-val threeN: N = new N3
-```
+final case class Config(url: String, gitHash: String)
 
-* Oder `Int` verwenden:
-```tut
-val threeInt = 3
+Config("file:/opt/app", "c4943b6") // ok
+
+Config("c4943b6", "file:/opt/app") // Production bug inevitable!
 ```
-
-???
-
-* Z.B. für die Linien oder Reihen auf einem Schachbrett
 
 ---
-class: center, middle
+# Add meaning and safety with value classes
 
-## Wie können wir die Wertemenge eines bestehenden Typs einschränken?
+```tut:silent
+final case class Url    (value: String) extends AnyVal
+
+final case class GitHash(value: String) extends AnyVal
+
+final case class Config(url: Url, gitHash: GitHash)
+```
+
+We can't mix parameters anymore:
+
+```tut:fail:silent
+Config(GitHash("c4943b6"), Url("file:/opt/app")) // does not compile
+```
+
+But our value classes still wrap arbitrary data:
+
+```tut:silent
+Config(Url("c4943b6"), GitHash("file:/opt/app")) // Next production bug ahead!
+```
 
 ---
-# Smarte Konstruktoren
+# Add validation logic: smart constructors
 
-* eigentlicher Konstruktor ist privat
-* smarter Konstruktor führt zusätzliche Checks durch
+* Hide primary constructor
+
+* Smart constructor performs extra checks
 
 ```tut:silent
 object test {
-  case class HexString private (value: String)
+  final case class GitHash private (value: String) extends AnyVal
 
-  object HexString {
-    def smart(s: String): Option[HexString] = {
-      val isHex = s.forall(c => c.isDigit || ('a' to 'f').contains(c))
-      if (isHex) Some(new HexString(s)) else None
+  object GitHash {
+    def fromString(s: String): Option[GitHash] = {
+      def isGitHash(s: String): Boolean =
+        (s.length >= 4 && s.length <= 40 &&
+          s.forall(c => c.isDigit || ('a' to 'f').contains(c)))
+
+      if (isGitHash(s)) Some(new GitHash(s)) else None
     }
   }
 }
 ```
 
 ---
-# Smarte Konstruktoren - Verwendung
+# Smart constructors: the Good
 
-* `smart` erzeugt nur valide `HexString`s:
+`fromString` creates only valid `GitHash`es:
 
 ```tut
-test.HexString.smart("123abc")
+test.GitHash.fromString("c4943b6")
 
-test.HexString.smart("A")
+test.GitHash.fromString("xyz")
 ```
 
-* Nur `smart` kann `HexString`s erzeugen:
+Only `fromString` can create `GitHash`es:
 
 ```tut:fail
-new test.HexString("123abc")
+new test.GitHash("c4943b6")
 ```
 
 ---
-# Smarte Konstruktoren - Vor- und Nachteile
+# Smart constructors: the Bad and the Ugly
 
-Vorteile:
+Literals are always wrapped
 
-* Wir können nur valide HexStrings erzeugen!
-
-Nachteile:
-
-* Prüfung findet immer zur Laufzeit statt
-
-* Auch Literale werden in `Option` eingepackt:
 ```tut
-test.HexString.smart("abc").get // unsafe!
+test.GitHash.fromString("c4943b6")
+
+test.GitHash.fromString("c4943b6").get
 ```
 
-* Einschränkungen können nicht kombiniert werden (z.B. `HexString`, die mind. 8 Zeichen lang sind)
-
-???
-
-* Literale werden auch zur Laufzeit geprüft obwohl zur Compile-Zeit bereits
-  validiert werden könnte
-
-* Literale aus `Option` auspacken ist unsicher. Wenn das Literal geändert wird
-  oder jemand die Validierung ändert, gibt es erst ein Fehler zur Laufzeit
+Validation always happens at runtime - even for statically known values
 
 ---
-# Refinement Types
+# What do we want?
 
-Grundidee:
+* **Safety** of smart constructors
 
-* <span style="color:#FFC000">**Basistyp**</span> wird mit einem
-  <span style="color:#FFC000">**Prädikat**</span> angereichert
+* **Convenience** when using literals
 
-* Werte diesen Typs <span style="color:#FFC000">**genügen dem Prädikat**</span>
+---
+# Refinement types
 
-Beispiele:
+Basic idea:
+
+* refinement type = 
+  <span style="color:#FFC000">**base type**</span> +
+  <span style="color:#FFC000">**predicate**</span>
+
+* values of a refinement type = all values of the base type that
+  <span style="color:#FFC000">**satisfy the predicate**</span>
+
+<br/>
+
+Examples (using fantasy syntax):
 
 * `Int with (i => i > 0)`
 
-* `String with (s => s.size >= 8)`
+* `String with (s => s.forall(c => c.isDigit || ('a' to 'f').contains(c)))`
 
-Subtyping:
+---
+# Refinement subtyping
 
-* `(T with P) <: T`
+Refinements only constraint existing types, so we have these "natural"
+subtyping relations:
 
-* `(T with P) <: (T with Q)` wenn für alle `t &isin; (T with P)` gilt:
-  `Q(t) == true`
+* <code>
+    (T with P)
+    <span class="hljs-keyword">&lt;:</span>
+    T
+  </code>
+
+* <code>
+    (T with P)
+    <span class="hljs-keyword">&lt;:</span>
+    (T with Q) &nbsp; if forall (t: T with P): Q(t)
+  </code>
+
+<br/>
+
+Examples:
+
+* <code>
+    Int with (i => i > 20)
+    <span class="hljs-keyword">&lt;:</span>
+    Int with (i => i > 10)
+  </code>
+
+* <code>
+    Int with (i => p(i) && q(i))
+    <span class="hljs-keyword">&lt;:</span>
+    Int with (i => p(i))
+  </code>
 
 ???
 
-* Laufzeit-Repräsentation entspricht dem Basistyp
-
-* Refinement Types können Vorbedingungen (Parametertyp) und
-  Nachbedingungen (Rückgabetyp) ausdrücken
-
-* `T with P` kann überall dort verwendet werden wo ein T benötigt wird
+* this is a kind of structural and strong behavioral subtyping
 
 ---
-# refined, die Bibliothek
+# Literals at the type-level
 
-* Implementiert Refinement Types
-
-* Eine Reihe Typelevel-Prädikaten, die miteinander kombiniert werden können
-
-* Makro für die Validierung von Literalen
-
-* Makro für die Unterstützung Refinement Subtyping
-
----
-# HexString mit refined
-
-```tut:silent
-// Prädikat auf Wertebene
-def isHex(s: String): Boolean =
-  s.forall(c => c.isDigit || ('a' to 'f').contains(c))
-```
-
-```tut:silent
-// Prädikat auf Typebene
-type HexString =
-  String Refined Forall[Digit Or (Interval.Closed[W.`'a'`.T, W.`'f'`.T])]
-```
-
-HexString ist zusammengesetzt aus:
-
-* `Refined[T, P]`
-* `Forall[Q]`
-* `Digit`
-* `Or[A, B]`
-* `Interval.Closed[L, H]`
-
-???
-
-
-* `Refined[T, P]` ist ein binärer Typkonstruktor und kann daher infix
-  benutzt werden. Dieser Typ heftet ein Prädikat an einen Basis-Typ
- 
-* Ein Makro prüft zur Compile-Zeit, ob LHS dem Prädikat genügt
-
-
-* `W.'a'.T` und `W.'f'.T` sind Singleton-Typen. Die einzigen Werte mit
-  diesen Typen sind 'a' bzw. 'f'
-  
-* Das Prädikat kann z.B. mit logischen Operatoren erweitert werden:
- `... And MinSize[W.8.T]`
-
-
----
-# Literale als Singleton-Typen
+We can use `shapeless.Witness` to express literal-based singleton types:
 
 ```tut
 val x: W.`"abc"`.T = "abc"
@@ -288,64 +239,125 @@ val x: W.`"abc"`.T = "abc"
 val x: W.`"abc"`.T = "xyz"
 ```
 
-* SIP-23: http://docs.scala-lang.org/sips/pending/42.type.html
-```scala
-// val x: "abc" = "abc"
+Hopefully soon in regular Scala:
+[SIP-23](http://docs.scala-lang.org/sips/pending/42.type.html)
+
+Already in Dotty: https://github.com/lampepfl/dotty/pull/771 ;-)
+
+???
+
+* "abc" is the type inhabited by the value "abc"
+
+---
+# GitHash with refined
+
+```tut:silent
+// GitHash defined with refined's type-level predicates:
+type GitHash = String Refined
+  And[Size[Interval.Closed[W.`4`.T, W.`40`.T]],
+      Forall[Or[Digit, Interval.Closed[W.`'a'`.T, W.`'f'`.T]]]]
+
+// value-level predicate we used in the smart constructor:
+def isGitHash(s: String): Boolean =
+  (s.length >= 4 && s.length <= 40 &&
+    s.forall(c => c.isDigit || ('a' to 'f').contains(c)))
 ```
 
 ---
-# Refinements zur Compile-Zeit
+# Refining values at compile-time
 
-Validierung von Literalen zur Compile-Zeit:
+Refining literals at compile-time:
+
 ```tut
-"123abc": HexString
+"c4943b6": GitHash
 ```
 
-Ungültige Literale führen zu einem Compile-Fehler:
+Invalid literals lead to a compile error:
+
 ```tut:fail
-"A": HexString
+"X": GitHash
 ```
 
-Refinements zur Compile-Zeit haben **keinen** Laufzeit-Overhead!
+Validation happens only at compile-time!
 
 ---
-# Refinements zur Laufzeit
+# Refining values at runtime
 
-Was ist mit Werten, die erst zur Laufzeit bekannt sind?
+How do we handle values that are only known at runtime?
 
-Refined Wert rechts:
-```tut
-def sha1: String = "git rev-parse HEAD".!!.trim
-
-RefType.applyRef[HexString](sha1)
+```tut:silent
+def head: String = "git rev-parse HEAD".!!.trim
 ```
 
-Oder Fehlermeldung links:
+Refined value on the right:
+
 ```tut
-RefType.applyRef[HexString](scala.util.Random.nextString(1))
+RefType.applyRef[GitHash](head)
+```
+
+Or error message on the left:
+
+```tut
+RefType.applyRef[GitHash](scala.util.Random.nextString(1))
 ```
 
 ---
-# Refinement Subtyping
+# How does that work?
 
-Alle `Int`s größer als 5 sind auch größer als 0:
+* A primitive predicate is a class and `Validate` type class instance:
+
+```tut:silent
+case class Letter()
+
+implicit def letterValidate: Validate.Plain[Char, Letter] =
+  Validate.fromPredicate(_.isLetter, t => s"isLetter('$t')", Letter())
+```
+
+* Predicates are composable:
+
+```tut:silent
+type Exists[P] = Not[Forall[Not[P]]]
+```
+
+* Macro evaluates `Validate` instances and uses them for checking literals
+
+* For runtime validation we just use the instance
+
+---
+# Refinement subtyping
+
+All `Int`s greater than 5 are also greater than 0:
+
 ```tut
 val x: Int Refined Greater[W.`5`.T] = 100
 
 val y: Int Refined Greater[W.`0`.T] = x
 ```
 
-Aber nicht alle `Int`s größer als 5 sind auch größer als 10:
+But not all `Int`s greater than 5 are also greater than 10:
+
 ```tut:fail
 val z: Int Refined Greater[W.`10`.T] = x
 ```
 
-???
+---
+# How does that work?
 
-* Zuweisung ist ein Compile-Fehler
+* Type class `Inference[P, C]` that specifies if `T Refined P` is a
+  subtype of `T Refined C`:
+
+```tut:silent
+implicit def greaterInferenceWit[C, A <: C, B <: C](
+  implicit wa: Witness.Aux[A], wb: Witness.Aux[B], nc: Numeric[C]
+): Inference[Greater[A], Greater[B]] =
+  Inference(nc.gt(wa.value, wb.value), "...")
+```
+
+* Macro that rewrites `T Refined P` to `T Refined C` if it finds
+  a valid `Inference[P, C]`
 
 ---
-# Logische Prädikate
+# Logical predicates
 
 * `True`: constant predicate that is always `true`
 * `False`: constant predicate that is always `false`
@@ -360,7 +372,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `OneOf[PS]`: exclusive disjunction of all predicates in `PS`
 
 ---
-# Prädikate für Chars
+# Char predicates
 
 * `Digit`: checks if a `Char` is a digit
 * `Letter`: checks if a `Char` is a letter
@@ -370,7 +382,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `Whitespace`: checks if a `Char` is white space
 
 ---
-# Prädikate für Container
+# Collection predicates
 
 * `Contains[U]`: checks if a `Traversable` contains a value equal to `U`
 * `Count[PA, PC]`: counts the number of elements in a `Traversable` which satisfy the
@@ -389,7 +401,7 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `MaxSize[N]`: checks if the size of a `Traversable` is less than or equal to `N`
 
 ---
-# Numerische Prädikate
+# Numeric predicates
 
 * `Less[N]`: checks if a numeric value is less than `N`
 * `LessEqual[N]`: checks if a numeric value is less than or equal to `N`
@@ -404,12 +416,8 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `Interval.ClosedOpen[L, H]`: checks if a numeric value is in the interval [`L`, `H`)
 * `Interval.Closed[L, H]`: checks if a numeric value is in the interval [`L`, `H`]
 
-???
-
-* Nur zwei von diesen Prädikaten sind kein Typalias
-
 ---
-# Prädikate für Strings
+# String predicates
 
 * `EndsWith[S]`: checks if a `String` ends with the suffix `S`
 * `MatchesRegex[S]`: checks if a `String` matches the regular expression `S`
@@ -422,41 +430,30 @@ val z: Int Refined Greater[W.`10`.T] = x
 * `XPath`: checks if a `String` is a valid XPath expression
 
 ---
-# Weitere Beispiele
+# More exotic examples
 
-* Gültige reguläre Ausdrücke:
+Valid regular expressions:
+
 ```tut
 "(a|b)": String Refined Regex
 ```
 
-* Strings, die mit drei Ziffern beginnen:
+`String`s that match a given regex:
+
 ```tut
 "129a": String Refined MatchesRegex[W.`"[0-9]{3}.*"`.T]
 ```
 
-* Ganzzahlen, die ohne Rest durch drei teilbar sind:
+`Int`s that are divisible by 3:
+
 ```tut
 42: Int Refined Eval[W.`"(i: Int) => i % 3 == 0"`.T]
 ```
 
 ---
-# Zusammenfassung
-
-* Wir verwenden oft Typen, die mehr Werte umfassen als in unserer Domäne
-  sinnvoll ist
-
-* Den Wertebereich von existierenden Typen kann man einschränken mit
-
-    * Smarten Konstruktoren (auch in Java)
-
-    * Refinement Types
-
-* Refinement Type = Basistyp + Prädikat
-
----
 class: center, middle
 
-# Danke!
+# Thanks!
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js"></script>

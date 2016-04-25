@@ -51,4 +51,3 @@ type NonEmptyList = List Refined Size[Positive]
 "make illegal states unrepresentable"
 
 http://stackoverflow.com/questions/35903100/what-does-t-do-in-scala
-
