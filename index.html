@@ -311,14 +311,14 @@ Refined value on the right:
 
 ```scala
 scala> RefType.applyRef[GitHash](head)
-res19: Either[String,GitHash] = Right(f2f4a4e4774ceb7d7fc308fd8c3ffe45940cc5eb)
+res19: Either[String,GitHash] = Right(84693a143c8c6320de115a0ab58fc48e5964fbba)
 ```
 
 Or error message on the left:
 
 ```scala
 scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
-res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('ఛ') || (!(ఛ < a) && !(ఛ > f))))) failed. Left: Predicate taking size(ఛ) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('ఛ') || (!(ఛ < a) && !(ఛ > f)))).)
+res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('緸') || (!(緸 < a) && !(緸 > f))))) failed. Left: Predicate taking size(緸) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('緸') || (!(緸 < a) && !(緸 > f)))).)
 ```
 
 ---
@@ -463,17 +463,17 @@ class: center, middle
 ---
 # Integration with other libraries
 
-* argonaut-refined / circe-refined
+* argonaut-refined / circe-refined by Alexandre Archambault
 
-* monocle-refined
+* monocle-refined by Julien Truffaut
 
 * refined-scalacheck
 
 * refined-scodec
 
-* doobie-refined (WIP)
+* doobie-refined (WIP) by Kevin Horlick
 
-* libisabelle-refined (WIP)
+* libisabelle-refined (WIP) by Lars Hupel
 
 ---
 # Summary
