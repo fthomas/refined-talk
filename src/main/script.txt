@@ -86,7 +86,7 @@ But unwrapping the GitHash from with get is inherently unsafe. If the literal
 is changed or the validation rule, we'll get an exception at runtime.
 
 The other downside is that validation always happens at runtime.
-It would be to nice if literals could be validated only at compile-time.
+It should be possible to validate literals only at compile-time.
 
 ---
 
