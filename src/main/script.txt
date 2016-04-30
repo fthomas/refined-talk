@@ -208,15 +208,18 @@ This is how we can refine values at runtime.
 
 ---
 
-Now I'd like to briefly mention how this is implemented.
+Now I'd like to briefly mention how the refinement machinery is implemented.
 
-A primitive predicate is just an empty class and an instance of the Validate
+A predicate is just a class and an instance of the Validate
 type class. The Validate type class connects a value level predicate with the
 type-level predicate.
 
+For example this Letter predicate basically makes the _.isLetter value-level
+predicate available at the type-level.
+
 We also can write predicates that take other predicates as parameters to
-compose like Exists here. And this actually the complete defintion of the
-Exists predicate in refined. 
+compose them like Exists here. Actually this is the complete defintion of
+Exists in refined.
 
 To refine values runtime we just the appropriate Validate instance and
 for validation at compile-time there is a macro that evaluates the Validate
