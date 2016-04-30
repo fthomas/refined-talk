@@ -318,13 +318,13 @@ Or error message on the left:
 
 ```scala
 scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
-res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('䏥') || (!(䏥 < a) && !(䏥 > f))))) failed. Left: Predicate taking size(䏥) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('䏥') || (!(䏥 < a) && !(䏥 > f)))).)
+res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('ఛ') || (!(ఛ < a) && !(ఛ > f))))) failed. Left: Predicate taking size(ఛ) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('ఛ') || (!(ఛ < a) && !(ఛ > f)))).)
 ```
 
 ---
 # How does that work?
 
-A primitive predicate is a class and `Validate` type class instance:
+A predicate is a class and an instance of the `Validate` type class:
 
 ```scala
 case class Letter()
