@@ -225,9 +225,9 @@ Examples:
   </code>
 
 * <code>
-    Int + (i => p(i) && q(i))
+    Int + (i => a(i) && b(i))
     <span class="hljs-keyword">&lt;:</span>
-    Int + (i => p(i))
+    Int + (i => a(i))
   </code>
 
 ???
@@ -311,14 +311,14 @@ Refined value on the right:
 
 ```scala
 scala> RefType.applyRef[GitHash](head)
-res19: Either[String,GitHash] = Right(f1b967c1bd161047d28ce8451484cb41d2cc7c27)
+res19: Either[String,GitHash] = Right(f2f4a4e4774ceb7d7fc308fd8c3ffe45940cc5eb)
 ```
 
 Or error message on the left:
 
 ```scala
 scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
-res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('㱦') || (!(㱦 < a) && !(㱦 > f))))) failed. Left: Predicate taking size(㱦) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('㱦') || (!(㱦 < a) && !(㱦 > f)))).)
+res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('䏥') || (!(䏥 < a) && !(䏥 > f))))) failed. Left: Predicate taking size(䏥) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('䏥') || (!(䏥 < a) && !(䏥 > f)))).)
 ```
 
 ---
@@ -382,6 +382,10 @@ implicit def greaterInferenceWit[C, A <: C, B <: C](
 
 Macro that rewrites `T Refined P` to `T Refined Q` if it finds
 a valid `Inference[P, Q]`
+
+---
+class: center, middle
+# Predicates in refined
 
 ---
 # Logical predicates
@@ -463,11 +467,13 @@ a valid `Inference[P, Q]`
 
 * monocle-refined
 
-* doobie-refined
-
 * refined-scalacheck
 
 * refined-scodec
+
+* doobie-refined (WIP)
+
+* libisabelle-refined (WIP)
 
 ---
 # Summary
