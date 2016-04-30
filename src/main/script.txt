@@ -1,0 +1,259 @@
+Hi, I'm Frank, I'm a software engineer from southern germany
+and I like types.
+
+Today I'll talk about refinement types with refined. refined is library
+I started working on almost a year ago.
+
+---
+
+Before I begin I just want to mention that this talk contains some
+code examples that were compiled with tut and these are the required
+imports.
+
+tut is an awesome sbt-plugin by Rob Norris for typechecked documentation.
+So this talk hopefully only contains intentional errors. :-)
+
+---
+
+Refinement types are a way to make existing types more precise
+and I like this tweet by Ken Scambler a lot because it points out
+that we often use types that represent more values than are really
+useful in our domains.
+
+---
+
+So what is the problem with String? A String has no meaning and a
+String could contain anything. It could be a file path, a JSON document,
+or some Scala code. Basically it is just a sequence of characters.
+
+In an ideal world we would use Strings only at the boundaries of our
+programs when we do I/O. But reality is that we use them too often because
+they are so convenient to use.
+
+Here is one example of a Config class that contains a URL and a Git hash,
+and both are Strings. If we do this compiler can't help us if we mix the
+parameters by accident.
+
+Another problem is that we don't provide any clue to next programmer
+what are the possible values of url and gitHash except their names. 
+
+---
+
+We can add more meaning and safety to our programs if we add simple
+wrapper class that give our Strings distinct types.
+
+Here we add Url and GitHash value classes and use them in the Config
+class. This way can't mix parameters in Config anymore. This will lead
+to a compile error.
+
+But those value classes still wrap arbitrary data and no one prevents
+us from putting a git hash into Url or vice versa.
+
+So we need a way to restrict the values we can put in our wrapper
+types.
+
+--- 
+
+One way of doing this is known as smart constructors. Smart constructor
+is a pattern where we only wrap values that satisfy some predicate. 
+
+We do this by hiding the primary constructor and only exposing a "smart"
+constructor that checks if a given value satisfies the predicate.
+
+This example shows GitHash as smart constructor where fromString contains a
+predicate that checks the length of the input and if all characters in
+the String are hexdigits. If this predicate is true, we get the input
+wrapped in GitHash wrapped in Some and otherwise None.
+
+---
+
+This shows how we can create GitHash instances with fromString.
+Only valid Strings result in a non-empty Option.
+
+And if we try to use the GitHash constructor directly, the compiler
+complains because it is private. 
+
+So now we have a mechanism to only create valid GitHashes. That is great!
+But there are also downsides.
+
+---
+
+One is that all GitHashes are wrapped in an Option even if a given String
+is known at compile-time. If we use literals in our code we'd like to use
+GitHashes instead of having them wrapped in an Option.
+
+But unwrapping the GitHash from with get is inherently unsafe. If the literal
+is changed or the validation rule, we'll get an exception at runtime.
+
+The other downside is that validation always happens at runtime.
+It would be to nice if literals could be validated only at compile-time.
+
+---
+
+So it would be nice if we could have the safety of using
+smart constructors and the convenience when using literals.
+
+And I'll show now that we can have both with refinement types in refined.
+
+---
+
+But before we take a look at refined, I want to introduce the basic idea of
+refinement types.
+
+A refinement type is just the combination of a base type and a predicate.
+And all values of of the refinement type are the values of the base type
+which satisfy the predicate.
+
+Simple examples are an Int with the predicate that all values are greater
+than 0. Or here we have String that only consists of hex digits.
+
+---
+
+Another part of refinement types is refinement subtyping. Because a
+refinement only makes the set of possible values of the base type smaller,
+there are "natural" subtyping relations.
+
+The first one is that a refined type is subtype of the base type.
+So an Int that is greater than zero is still an Int.
+
+The second relation is a little bit more complicated. A refined type
+is a subtype of another refined type if all values of the first type
+also satisfy the predicate of the second type.
+
+Examples are Ints greater 20 which is a subtype of Ints greater 10.
+Or an Int that satisfies both predicates a and b is subtype of
+Int that only satisfies a.
+
+We can say that there is a subtype relation if one predicate logically
+implies the other.
+
+---
+
+So we have now seen the definition of refinement types. There is still one
+concept I'll want to introduce before we go into refined and that are
+literal based singleton types.
+
+Singleton types are types that have only one inhabitant and literal-based
+singleton types are basically literals at the type level and their inhabitant
+is the value of that literal.
+
+Currently Scala has no syntax for writing down literal singleton types but
+we can shapeless.Witness which is abbreviated as W in refined to express them.
+
+Here is a variable with the type "abc" which we can assign the value "abc".
+If we try to assign the value "xyz" to a variable of the same type, we
+get compile error. The compiler expected the type "abc" but got a value of
+type "xyz".
+
+So literal based singleton types are a way to use values at the type
+level and we use that in refined a lot as a way to use values
+in our predicates.
+
+Btw: There is currently a SIP for providing syntax for literal-based
+singleton types in Scala.
+
+And of course this is already implemented in Dotty.
+
+---
+
+We now have everything in place to define our first refinement type with
+refined. And we start with a type for Git hashes.
+
+This is the definition of GitHash and the only thing we need to define
+ourself in order to use it with library. The value level predicate here
+is the same we used for the smart consturctor and is just for comparison.
+
+GitHash is quite lengthy, so let us take a closer look at it. You see it is
+defined as String Refined and then the type-level predicate. Refined here
+has the purpose of attaching the predicate to the base type String and
+wrapping a value of the base type. Because it is a binary
+type constructor we can write it infix. The predicate itself is not simple
+primitve predicate but is composed of other predicates that take predicates
+as parameters. And all those predicates are defined by the library.
+
+This part here demands that our String is between 4 and 40 characters long
+and this part here demands that all characters are hexdigits. And those two
+parts are connected with And predicate.
+
+---
+
+So now that we have a refined type how do we use it?
+
+We can use it at compile-time by just ascribing the type to a literal
+String. By doing so a macro will now validate at compile-time that our
+literal is valid GitHash.
+
+If we ascribe it to an invalid literal compilation fails with an error
+message that says which parts of the predicate failed. 
+
+The nice thing here literals are not wrapped and the validation happens
+at compile-time.
+
+---
+
+We have seen how to refine literals, now we look at how we can refine values
+that are only known at runtime.
+
+Here we want refine the HEAD commit hash as reported by the git
+command line client.
+
+We use this RefType.applyRef function and pass it the refined type
+and the value we want to refine. And if it satisfies to the predicate
+we get a GitHash on the right of this Either.
+
+And if doesnt satisfy the predicate we get an error message on the left
+of this Either.
+
+This is how we can refine values at runtime.
+
+---
+
+Now I'd like to briefly mention how this is implemented.
+
+A primitive predicate is just an empty class and an instance of the Validate
+type class. The Validate type class connects a value level predicate with the
+type-level predicate.
+
+We also can write predicates that take other predicates as parameters to
+compose like Exists here. And this actually the complete defintion of the
+Exists predicate in refined. 
+
+To refine values runtime we just the appropriate Validate instance and
+for validation at compile-time there is a macro that evaluates the Validate
+instances and uses them for checking literals.
+
+---
+
+The library also implements refinement subtyping and here is an example how that
+looks like.
+
+x is has type Int Greater[5] and the assignment to y which has
+type Int Greater[0] just works. Although those are in principle
+distinct types for the type checker.
+
+If we try assign x to z which is of type Int Greater[10] the compiler
+complains because the predicate Greater[5] does not imply the predicate
+Greater[10]
+
+And this how refinement subtyping looks like in the library.
+
+---
+
+The implementation of refinement subtyping is also type class based.
+
+There is an Inference type class that spefifies whether the predicate
+P implies Q. And the library provides instances for this type class where
+possible.
+
+As an example: here is the Inference instance for Greater. The implicit
+Witness arguments here allow us to get the values of the literal singleton
+types that are used as parameters of Greater. And the Inference is valid
+if value of the first predicate is greater than the value of the second.
+
+And then there is an implicit macro that converts T Refined P to
+T Refined Q if there is a valid Inference instances.
+
+--- 
+
+
+
