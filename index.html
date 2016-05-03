@@ -311,14 +311,14 @@ Refined value on the right:
 
 ```scala
 scala> RefType.applyRef[GitHash](head)
-res19: Either[String,GitHash] = Right(84693a143c8c6320de115a0ab58fc48e5964fbba)
+res19: Either[String,GitHash] = Right(d90febb2396618f08ff17eb779c35f1dd9617afc)
 ```
 
 Or error message on the left:
 
 ```scala
 scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
-res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('緸') || (!(緸 < a) && !(緸 > f))))) failed. Left: Predicate taking size(緸) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('緸') || (!(緸 < a) && !(緸 > f)))).)
+res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('쟅') || (!(쟅 < a) && !(쟅 > f))))) failed. Left: Predicate taking size(쟅) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('쟅') || (!(쟅 < a) && !(쟅 > f)))).)
 ```
 
 ---
@@ -370,7 +370,7 @@ scala> val z: Int Refined Greater[W.`10`.T] = x
 ---
 # How does that work?
 
-Type class `Inference[P, Q]` that specifies if `T Refined Q` is a
+Type class `Inference[P, Q]` that specifies if `T Refined P` is a
 subtype of `T Refined Q`:
 
 ```scala
@@ -490,6 +490,8 @@ class: center, middle
 
 ---
 class: center, middle
+
+# Questions?
 
 # Thanks!
 
