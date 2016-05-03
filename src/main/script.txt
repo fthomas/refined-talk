@@ -1,41 +1,40 @@
-Hi, I'm Frank, I'm a software engineer from southern germany
-and I like types.
-
-Today I'll talk about refinement types with refined. refined is library
-I started working on almost a year ago.
+Hi, I'm Frank, I'm a software engineer at a german ISP and today I want to
+talk about refinement types with refined. refined is library I started working
+on almost a year ago.
 
 ---
 
-Before I begin I just want to mention that this talk contains some
-code examples that were compiled with tut and these are the required
-imports.
+Before I begin I just want to mention that the code examples in this talk were
+compiled compiled with tut and these are the required imports.
 
 tut is an awesome sbt-plugin by Rob Norris for typechecked documentation.
 So this talk hopefully only contains intentional errors. :-)
 
 ---
 
-Refinement types are a way to make existing types more precise
-and I like this tweet by Ken Scambler a lot because it points out
-that we often use types that represent more values than are really
-useful in our domains.
+Refinement types are a way to make existing types more precise and I like this
+tweet by Ken Scambler a lot because it points out that we often use types that
+represent more values than are really useful in our domains.
+
+Normally we don't expect the complete works of Shakespeare as input when we're
+using Strings in our code.
 
 ---
 
-So what is the problem with String? A String has no meaning and a
-String could contain anything. It could be a file path, a JSON document,
-or some Scala code. Basically it is just a sequence of characters.
+So what is the problem with String? A String has no meaning and a String could
+contain anything. It could be a file path, a JSON document, or some Scala
+code. Basically it is just a sequence of characters of arbitrary length.
 
 In an ideal world we would use Strings only at the boundaries of our
 programs when we do I/O. But reality is that we use them too often because
 they are so convenient to use.
 
-Here is one example of a Config class that contains a URL and a Git hash,
-and both are Strings. If we do this compiler can't help us if we mix the
-parameters by accident.
+Here is for example a Config class that contains a URL and a Git hash,
+and both are Strings. If we define it like this the compiler can't help us if
+we mix the parameters by accident.
 
 Another problem is that we don't provide any clue to next programmer
-what are the possible values of url and gitHash except their names. 
+what the possible values of url and gitHash are except their names. 
 
 ---
 
@@ -46,13 +45,13 @@ Here we add Url and GitHash value classes and use them in the Config
 class. This way can't mix parameters in Config anymore. This will lead
 to a compile error.
 
-But those value classes still wrap arbitrary data and no one prevents
-us from putting a git hash into Url or vice versa.
+But those value classes still wrap arbitrary Strings and no one prevents
+us from putting a Git hash into Url or vice versa.
 
 So we need a way to restrict the values we can put in our wrapper
-types.
+types to also prevent these errors.
 
---- 
+---
 
 One way of doing this is known as smart constructors. Smart constructor
 is a pattern where we only wrap values that satisfy some predicate. 
@@ -73,16 +72,17 @@ Only valid Strings result in a non-empty Option.
 And if we try to use the GitHash constructor directly, the compiler
 complains because it is private. 
 
-So now we have a mechanism to only create valid GitHashes. That is great!
-But there are also downsides.
+So now we have a mechanism to only create GitHashes from valid Strings.
+That is great! But there are also downsides.
 
 ---
 
 One is that all GitHashes are wrapped in an Option even if a given String
-is known at compile-time. If we use literals in our code we'd like to use
-GitHashes instead of having them wrapped in an Option.
+is known at compile-time to be valid Git hash. If we use literals in our code
+we'd like to use GitHashes directly instead of having them wrapped in an
+Option.
 
-But unwrapping the GitHash from with get is inherently unsafe. If the literal
+But unwrapping the GitHash with get is an unsafe operation. If the literal
 is changed or the validation rule, we'll get an exception at runtime.
 
 The other downside is that validation always happens at runtime.
@@ -100,16 +100,17 @@ And I'll show now that we can have both with refinement types in refined.
 But before we take a look at refined, I want to introduce the basic idea of
 refinement types.
 
-A refinement type is just the combination of a base type and a predicate.
+A refinement type is the combination of a base type and a predicate.
 And all values of of the refinement type are the values of the base type
 which satisfy the predicate.
 
 Simple examples are an Int with the predicate that all values are greater
-than 0. Or here we have String that only consists of hex digits.
+than 0. Or here we have a String with the predicate that all its characters
+are hexdigits.
 
 ---
 
-Another part of refinement types is refinement subtyping. Because a
+Another aspect of refinement types is refinement subtyping. Because a
 refinement only makes the set of possible values of the base type smaller,
 there are "natural" subtyping relations.
 
@@ -120,9 +121,9 @@ The second relation is a little bit more complicated. A refined type
 is a subtype of another refined type if all values of the first type
 also satisfy the predicate of the second type.
 
-Examples are Ints greater 20 which is a subtype of Ints greater 10.
-Or an Int that satisfies both predicates a and b is subtype of
-Int that only satisfies a.
+For example, an Int greater 20 is a subtype of an Int greater 10 because
+all Ints greater 20 are also greater 10. Or an Int that satisfies both
+predicates a and b is a subtype of an Int that only satisfies a.
 
 We can say that there is a subtype relation if one predicate logically
 implies the other.
@@ -146,11 +147,10 @@ get compile error. The compiler expected the type "abc" but got a value of
 type "xyz".
 
 So literal based singleton types are a way to use values at the type
-level and we use that in refined a lot as a way to use values
-in our predicates.
+level and we use them in refined a lot as parameters in our predicates.
 
-Btw: There is currently a SIP for providing syntax for literal-based
-singleton types in Scala.
+Btw: There is a SIP for providing syntax for literal-based singleton types in
+Scala proper.
 
 And of course this is already implemented in Dotty.
 
@@ -159,13 +159,14 @@ And of course this is already implemented in Dotty.
 We now have everything in place to define our first refinement type with
 refined. And we start with a type for Git hashes.
 
-This is the definition of GitHash and the only thing we need to define
+This is the definition of GitHash and is the only thing we need to define
 ourself in order to use it with library. The value level predicate here
-is the same we used for the smart consturctor and is just for comparison.
+is the same we used for the smart consturctor and is just for comparison
+with the type-level predicate.
 
 GitHash is quite lengthy, so let us take a closer look at it. You see it is
-defined as String Refined and then the type-level predicate. Refined here
-has the purpose of attaching the predicate to the base type String and
+defined as String Refined and then the predicate. Refined here
+has the purpose of attaching the predicate to the base type and
 wrapping a value of the base type. Because it is a binary
 type constructor we can write it infix. The predicate itself is not simple
 primitve predicate but is composed of other predicates that take predicates
@@ -179,14 +180,14 @@ parts are connected with And predicate.
 
 So now that we have a refined type how do we use it?
 
-We can use it at compile-time by just ascribing the type to a literal
-String. By doing so a macro will now validate at compile-time that our
+We can use it at compile-time by just ascribing the type to a String literal.
+By doing so a macro will now validate at compile-time that our
 literal is valid GitHash.
 
 If we ascribe it to an invalid literal compilation fails with an error
 message that says which parts of the predicate failed. 
 
-The nice thing here literals are not wrapped and the validation happens
+The nice thing here is that literals are not wrapped and the validation happens
 at compile-time.
 
 ---
@@ -249,14 +250,21 @@ P implies Q. And the library provides instances for this type class where
 possible.
 
 As an example: here is the Inference instance for Greater. The implicit
-Witness arguments here allow us to get the values of the literal singleton
+Witness arguments allow us to get the values of the literal singleton
 types that are used as parameters of Greater. And the Inference is valid
-if value of the first predicate is greater than the value of the second.
+if the value of the first predicate is greater than the value of the second.
 
 And then there is an implicit macro that converts T Refined P to
 T Refined Q if there is a valid Inference instances.
 
---- 
+In more sophisticated refinement type systems this task would be carried
+out by a theorem prover like Z3. As it is done in LiquidHaskell for example.
+
+---
+
+Now I'd like to go quickly through the predicates that are defined in refined.
+
+---
 
 
 
