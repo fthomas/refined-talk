@@ -103,7 +103,7 @@ We can't mix parameters anymore:
 Config(GitHash("c4943b6"), Url("file:/opt/app")) // does not compile
 ```
 
-But our value classes still wrap arbitrary data:
+But our value classes still wrap arbitrary `String`s:
 
 ```tut:silent
 Config(Url("c4943b6"), GitHash("file:/opt/app")) // Next production bug ahead!

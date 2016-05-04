@@ -1,6 +1,6 @@
 Hi, I'm Frank, I'm a software engineer at a german ISP and today I want to
 talk about refinement types with refined. refined is library I started working
-on almost a year ago.
+on almost a year ago and its purpose make existings more precise.
 
 ---
 
@@ -39,7 +39,7 @@ what the possible values of url and gitHash are except their names.
 ---
 
 We can add more meaning and safety to our programs if we add simple
-wrapper class that give our Strings distinct types.
+wrapper classes that give our Strings distinct types.
 
 Here we add Url and GitHash value classes and use them in the Config
 class. This way can't mix parameters in Config anymore. This will lead
@@ -139,7 +139,8 @@ singleton types are basically literals at the type level and their inhabitant
 is the value of that literal.
 
 Currently Scala has no syntax for writing down literal singleton types but
-we can shapeless.Witness which is abbreviated as W in refined to express them.
+we can use shapeless.Witness which is abbreviated as W in refined to express
+them.
 
 Here is a variable with the type "abc" which we can assign the value "abc".
 If we try to assign the value "xyz" to a variable of the same type, we
