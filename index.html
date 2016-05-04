@@ -103,7 +103,7 @@ We can't mix parameters anymore:
 Config(GitHash("c4943b6"), Url("file:/opt/app")) // does not compile
 ```
 
-But our value classes still wrap arbitrary data:
+But our value classes still wrap arbitrary `String`s:
 
 ```scala
 Config(Url("c4943b6"), GitHash("file:/opt/app")) // Next production bug ahead!
@@ -311,14 +311,14 @@ Refined value on the right:
 
 ```scala
 scala> RefType.applyRef[GitHash](head)
-res19: Either[String,GitHash] = Right(d90febb2396618f08ff17eb779c35f1dd9617afc)
+res19: Either[String,GitHash] = Right(75fe24a3ce42ae78a9bddcc53cd62518716f1051)
 ```
 
 Or error message on the left:
 
 ```scala
 scala> RefType.applyRef[GitHash](scala.util.Random.nextString(1))
-res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('쟅') || (!(쟅 < a) && !(쟅 > f))))) failed. Left: Predicate taking size(쟅) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('쟅') || (!(쟅 < a) && !(쟅 > f)))).)
+res20: Either[String,GitHash] = Left(Both predicates of ((!(1 < 4) && !(1 > 40)) && ((isDigit('琎') || (!(琎 < a) && !(琎 > f))))) failed. Left: Predicate taking size(琎) = 1 failed: Left predicate of (!(1 < 4) && !(1 > 40)) failed: Predicate (1 < 4) did not fail. Right: Predicate failed: ((isDigit('琎') || (!(琎 < a) && !(琎 > f)))).)
 ```
 
 ---
